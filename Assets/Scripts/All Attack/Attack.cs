@@ -21,7 +21,7 @@ public class Attack : MonoBehaviour
 
     [Header("Damage Table")]
     [SerializeField] private int[] normalDamages = new int[6] { 100, 2, 1, 2, 1, 2 };
-    [SerializeField] private int[] specialDamages = new int[6] { 3, 4, 3, 4, 3, 4 };
+    [SerializeField] private int[] specialDamages = new int[6] { 2, 4, 3, 4, 3, 4 };
     [SerializeField] private int[] ultimateDamages = new int[6] { 7, 8, 7, 8, 7, 8 };
 
     [Header("Sound")]

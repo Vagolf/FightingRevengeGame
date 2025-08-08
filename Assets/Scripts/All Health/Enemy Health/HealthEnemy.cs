@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using UnityEngine;
 
 public class HealthEnemy : MonoBehaviour
@@ -17,6 +17,9 @@ public class HealthEnemy : MonoBehaviour
     [SerializeField] private int numberOfFlashes = 3;
     private SpriteRenderer spriteRend;
     private bool isInvulnerable = false;
+
+    [Header("PopUpDamage")]
+    public GameObject popUpDamagePrefab;
 
     private void Start()
     {
@@ -56,6 +59,23 @@ public class HealthEnemy : MonoBehaviour
         {
             currentHealth = Mathf.Clamp(currentHealth - damage, 0, startingHealth);
             healthBar.SetHealth(currentHealth);
+
+            // สร้าง popup ดาเมจ
+            if (popUpDamagePrefab != null)
+            {
+                GameObject popUp = Instantiate(popUpDamagePrefab, transform.position, Quaternion.identity);
+
+                // รองรับทั้ง TextMeshProUGUI และ TextMesh
+                var tmp = popUp.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+                if (tmp != null)
+                    tmp.text = damage.ToString();
+                else
+                {
+                    var tm = popUp.GetComponentInChildren<TextMesh>();
+                    if (tm != null)
+                        tm.text = damage.ToString();
+                }
+            }
 
             if (currentHealth <= 0 && !isDead)
             {

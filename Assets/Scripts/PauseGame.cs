@@ -34,8 +34,8 @@ public class PauseGame : MonoBehaviour
         Time.timeScale = 0f;
         GameIsPause = true;
     }
-
-    public void GameGuide()
+     
+    /** public void GameGuide()
     {
         // Load the main menu scene (assuming it's named "MainMenu")
         //UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
@@ -54,5 +54,5 @@ public class PauseGame : MonoBehaviour
         // Quit the application
         Application.Quit();
         Debug.Log("Exit Game");
-    }
+    } **/
 }
