@@ -65,9 +65,7 @@ public class Player : MonoBehaviour
         // Move left-right
         horizontalInput = Input.GetAxis("Horizontal");
 
-        //dash check
-        if (isDashing)
-            return;
+        // Removed early return: still update animator while dashing
 
         // Crouch (S)
         if (Input.GetKey(KeyCode.S) && IsGrounded())
@@ -80,15 +78,14 @@ public class Player : MonoBehaviour
         }
 
         // Attack (J)
-        if (Input.GetKeyDown(KeyCode.J) && ground && !isCrouching)
+        if (Input.GetKeyDown(KeyCode.J) && ground && !isCrouching && !attack && !isDashing)
         {
-            
             // Normal attack
-                body.velocity = new Vector2(0, body.velocity.y);
-                anim.SetBool("run", false);
-                anim.SetBool("atk", true);
-                attack = true;
-                speed = 0;
+            body.velocity = new Vector2(0, body.velocity.y);
+            anim.SetBool("run", false);
+            anim.SetBool("atk", true);
+            attack = true;
+            speed = 0;
         }
         else
         {
@@ -96,7 +93,7 @@ public class Player : MonoBehaviour
             if (isCrouching)
             {
                 // Crouch attack
-                if (Input.GetKeyDown(KeyCode.J) && ground)
+                if (Input.GetKeyDown(KeyCode.J) && ground && !attack && !isDashing)
                 {
                     body.velocity = new Vector2(0, body.velocity.y);
                     anim.SetBool("run", false);
@@ -106,17 +103,22 @@ public class Player : MonoBehaviour
                 }
                 else
                 {
-                    body.velocity = new Vector2(0, body.velocity.y);
+                    if (!isDashing)
+                        body.velocity = new Vector2(0, body.velocity.y);
                 }
             }
             else
             {
-                speed = 20f; // Reset speed when not crouching or attacking
-                body.velocity = new Vector2(horizontalInput * speed, body.velocity.y);
+                // Only apply input-based horizontal movement when not dashing
+                if (!isDashing)
+                {
+                    speed = 20f; // Reset speed when not crouching or attacking
+                    body.velocity = new Vector2(horizontalInput * speed, body.velocity.y);
+                }
             }
         }
 
-        if (Input.GetKeyDown(KeyCode.L) && !ground) //!ground && dashCounter < 1 && Input.GetKeyDown(KeyCode.L) && horizontalInput != 0
+        if (Input.GetKeyDown(KeyCode.L) && !ground && canDash && !isDashing) //!ground && dashCounter < 1 && Input.GetKeyDown(KeyCode.L) && horizontalInput != 0
         {
             StartCoroutine(Dash());
         }
@@ -160,6 +162,16 @@ public class Player : MonoBehaviour
         {
             //dashCounter = 0; // Reset dash counter when touching the ground
             ground = true;
+
+            // If landing while dashing, stop dash immediately to prevent sliding
+            if (isDashing)
+            {
+                tr.emitting = false;
+                isDashing = false;
+                // If no input, stop horizontal movement
+                if (Mathf.Abs(horizontalInput) < 0.01f)
+                    body.velocity = new Vector2(0f, body.velocity.y);
+            }
         }
 
     }
@@ -182,25 +194,55 @@ public class Player : MonoBehaviour
     }
     **/
 
-    //Dash
+    //Dash with early stop on landing
     private IEnumerator Dash()
     {
         canDash = false;
         isDashing = true;
-        float originalGravity = body.gravityScale;
-        body.gravityScale = 0;
-        Vector3 dashPosition = transform.position + new Vector3(transform.localScale.x * dashPower, 0f, 0f);
-        transform.position = dashPosition;
-        Debug.Log("Dash posi: " + transform.position);
+
+        float dir = Mathf.Sign(transform.localScale.x);
         tr.emitting = true;
-        yield return new WaitForSeconds(dashTime);
-        Debug.Log("Dash");
+        dashSoundEffect?.Play();
+
+        float elapsed = 0f;
+        while (elapsed < dashTime)
+        {
+            // Apply dash horizontal velocity
+            body.velocity = new Vector2(dir * dashPower, body.velocity.y);
+
+            // Stop dash early if we touch ground to avoid sliding
+            if (ground)
+            {
+                break;
+            }
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
         tr.emitting = false;
-        body.gravityScale = originalGravity;
         isDashing = false;
+
+        // If grounded or no input, stop horizontal movement
+        if (ground || Mathf.Abs(horizontalInput) < 0.01f)
+        {
+            body.velocity = new Vector2(0f, body.velocity.y);
+        }
+
         yield return new WaitForSeconds(dashCooldown);
-        Debug.Log("CanDash");
         canDash = true;
+    }
+
+    // Functions for Animation Events
+    public void OnAttackStart()
+    {
+        anim.SetBool("atk", true);
+        attack = true;
+    }
+
+    public void OnAttackEnd()
+    {
+        StopAttackAnimation();
     }
 
     public void StopAttackAnimation()
