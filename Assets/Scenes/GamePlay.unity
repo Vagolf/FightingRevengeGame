@@ -9964,7 +9964,7 @@ TrailRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Time: 5
+  m_Time: 0.5
   m_PreviewTimeScale: 1
   m_Parameters:
     serializedVersion: 3
@@ -10052,10 +10052,7 @@ MonoBehaviour:
   groundLayer:
     serializedVersion: 2
     m_Bits: 256
-  tr: {fileID: 0}
-  dashPower: 5
-  dashTime: 0.1
-  dashCooldown: 2
+  tr: {fileID: 8690398305210679939}
   jumpSoundEffect: {fileID: 0}
   dashSoundEffect: {fileID: 0}
   boxCollider: {fileID: 5171602253783042991}

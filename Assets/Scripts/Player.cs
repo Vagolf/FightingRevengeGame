@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 
 public class Player : MonoBehaviour
 {
@@ -19,11 +20,17 @@ public class Player : MonoBehaviour
     [SerializeField] private float dashCooldown = 2f;
     */
 
-    [SerializeField] private float dashPower = 5f;
-    [SerializeField] private float dashTime = 0.1f;
-    [SerializeField] private float dashCooldown = 2f;
+    //[SerializeField] private float dashPower = 5f;
+    //[SerializeField] private float dashTime = 0.1f;
+    //[SerializeField] private float dashCooldown = 2f;
+    //private bool canDash = true;
+    //private bool isDashing = false;
+
     private bool canDash = true;
-    private bool isDashing = false;
+    private bool isDashing;
+    private float dashingPower = 100f;
+    private float dashnigTime = 0.2f;
+    private float dashingCooldown = 1f;
 
     [Header("Sound")]
     [SerializeField] private AudioSource jumpSoundEffect;
@@ -62,6 +69,11 @@ public class Player : MonoBehaviour
 
     private void Update()
     {
+        if (isDashing)
+        {
+            // Disable input during dash
+            return;
+        }
         // Move left-right
         horizontalInput = Input.GetAxis("Horizontal");
 
@@ -118,7 +130,7 @@ public class Player : MonoBehaviour
             }
         }
 
-        if (Input.GetKeyDown(KeyCode.L) && !ground && canDash && !isDashing) //!ground && dashCounter < 1 && Input.GetKeyDown(KeyCode.L) && horizontalInput != 0
+        if (Input.GetKeyDown(KeyCode.L) && canDash) //!ground && dashCounter < 1 && Input.GetKeyDown(KeyCode.L) && horizontalInput != 0
         {
             StartCoroutine(Dash());
         }
@@ -176,6 +188,23 @@ public class Player : MonoBehaviour
 
     }
 
+    //Dash 
+    private IEnumerator Dash()
+    {
+        canDash = false;
+        isDashing = true;
+        float originalGravity = body.gravityScale;
+        body.gravityScale = 0f; // Disable gravity during dash
+        body.velocity = new Vector2(transform.localScale.x * dashingPower, 0f); // Dash in facing direction
+        tr.emitting = true; // Start trail effect
+        yield return new WaitForSeconds(dashnigTime);
+        tr.emitting = false; // Stop trail effect
+        body.gravityScale = originalGravity; // Restore original gravity
+        isDashing = false;
+        yield return new WaitForSeconds(dashingCooldown);
+        canDash = true;
+    }
+
     // Dash functionality (optional, can be removed if not needed) 21-6-68
     /**
     private void Dash()
@@ -195,43 +224,45 @@ public class Player : MonoBehaviour
     **/
 
     //Dash with early stop on landing
-    private IEnumerator Dash()
-    {
-        canDash = false;
-        isDashing = true;
+    //private IEnumerator Dash()
+    //{
+    //    canDash = false;
+    //    isDashing = true;
 
-        float dir = Mathf.Sign(transform.localScale.x);
-        tr.emitting = true;
-        dashSoundEffect?.Play();
+    //    float dir = Mathf.Sign(transform.localScale.x);
+    //    tr.emitting = true;
+    //    dashSoundEffect?.Play();
 
-        float elapsed = 0f;
-        while (elapsed < dashTime)
-        {
-            // Apply dash horizontal velocity
-            body.velocity = new Vector2(dir * dashPower, body.velocity.y);
+    //    float elapsed = 0f;
+    //    while (elapsed < dashTime)
+    //    {
+    //        // Apply dash horizontal velocity
+    //        body.velocity = new Vector2(dir * dashPower, body.velocity.y);
 
-            // Stop dash early if we touch ground to avoid sliding
-            if (ground)
-            {
-                break;
-            }
+    //        // Stop dash early if we touch ground to avoid sliding
+    //        if (ground)
+    //        {
+    //            canDash = true;
+    //            isDashing = false;
+    //            break;
+    //        }
 
-            elapsed += Time.deltaTime;
-            yield return null;
-        }
+    //        elapsed += Time.deltaTime;
+    //        yield return null;
+    //    }
 
-        tr.emitting = false;
-        isDashing = false;
+    //    tr.emitting = false;
+    //    isDashing = false;
 
-        // If grounded or no input, stop horizontal movement
-        if (ground || Mathf.Abs(horizontalInput) < 0.01f)
-        {
-            body.velocity = new Vector2(0f, body.velocity.y);
-        }
+    //    // If grounded or no input, stop horizontal movement
+    //    if (ground || Mathf.Abs(horizontalInput) < 0.01f)
+    //    {
+    //        body.velocity = new Vector2(0f, body.velocity.y);
+    //    }
 
-        yield return new WaitForSeconds(dashCooldown);
-        canDash = true;
-    }
+    //    yield return new WaitForSeconds(dashCooldown);
+    //    canDash = true;
+    //}
 
     // Functions for Animation Events
     public void OnAttackStart()
