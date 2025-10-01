@@ -60,6 +60,12 @@ public class Player : MonoBehaviour
 
     private bool attack;
 
+    [Header("Ultimate Skill")]
+    [SerializeField] private float ultimateCooldown = 8f;
+    private bool canUltimate = true;
+    private bool isUltimating = false;
+    private float ultimateTimer = 0f;
+
     private void Awake()
     {
         body = GetComponent<Rigidbody2D>();
@@ -69,9 +75,9 @@ public class Player : MonoBehaviour
 
     private void Update()
     {
-        if (isDashing)
+        if (isDashing || isUltimating)
         {
-            // Disable input during dash
+            // Disable input during dash or ultimate
             return;
         }
         // Move left-right
@@ -135,6 +141,13 @@ public class Player : MonoBehaviour
             StartCoroutine(Dash());
         }
 
+        // Ultimate (K)
+        if (Input.GetKeyDown(KeyCode.K) && canUltimate)
+        {
+            Debug.Log("Ultimate Activated");
+            StartCoroutine(UltimateSkill());
+        }
+
         // Flip player (A, D)
         if (horizontalInput > 0.01f)
             transform.localScale = new Vector3(1, 1, 1);
@@ -152,6 +165,17 @@ public class Player : MonoBehaviour
         anim.SetBool("ground", ground);
         anim.SetBool("crouch", isCrouching);
         anim.SetFloat("yVelocity", body.velocity.y);
+
+        // Ultimate cooldown timer
+        if (!canUltimate)
+        {
+            ultimateTimer += Time.deltaTime;
+            if (ultimateTimer >= ultimateCooldown)
+            {
+                canUltimate = true;
+                ultimateTimer = 0f;
+            }
+        }
     }
 
     private void Jump()
@@ -319,5 +343,28 @@ public class Player : MonoBehaviour
     {
         anim.SetBool("hurt", false);
         body.velocity = new Vector2(body.velocity.x, 0); // Reset vertical velocity
+    }
+
+    // Ultimate Skill coroutine
+    private IEnumerator UltimateSkill()
+    {
+        Debug.Log("Working Ultimate Activated");
+        canUltimate = false;
+        isUltimating = true;
+        anim.SetTrigger("ulti");
+        Debug.Log("Working anim Ultimate Activated");
+        // รอจนกว่าจะมี Animation Event เรียก EndUltimate()
+        while (isUltimating)
+        {
+            yield return null;
+        }
+        // หลังจากนี้จะเริ่ม cooldown
+    }
+
+    // Call this from animation event at the end of ultimate animation
+    public void EndUltimate()
+    {
+        Debug.Log("Stop Ultimate Activated");
+        isUltimating = false;
     }
 }
