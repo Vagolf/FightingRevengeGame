@@ -30,9 +30,6 @@ public class Attack : MonoBehaviour
     [SerializeField] private AudioSource ultimateAttackSound;
 
     private Animator anim;
-    private float normalTimer = Mathf.Infinity;
-    private float specialTimer = Mathf.Infinity;
-    private float ultimateTimer = Mathf.Infinity;
 
     private void Awake()
     {
@@ -41,28 +38,9 @@ public class Attack : MonoBehaviour
 
     private void Update()
     {
-        normalTimer += Time.deltaTime;
-        specialTimer += Time.deltaTime;
-        ultimateTimer += Time.deltaTime;
 
-        // Normal attack (J)
-        if (Input.GetKeyDown(KeyCode.J) && normalTimer >= normalCooldowns[characterIndex])
-        {
-            DoAttack(AttackType.Normal);
-            normalTimer = 0f;
-        }
-        // Special attack (K)
-        if (Input.GetKeyDown(KeyCode.K) && specialTimer >= specialCooldowns[characterIndex])
-        {
-            DoAttack(AttackType.Special);
-            specialTimer = 0f;
-        }
-        // Ultimate attack (L)
-        if (Input.GetKeyDown(KeyCode.L) && ultimateTimer >= ultimateCooldowns[characterIndex])
-        {
-            DoAttack(AttackType.Ultimate);
-            ultimateTimer = 0f;
-        }
+        // ลบการเรียกใช้ปุ่ม J, K, L ออกแล้ว
+        // ให้ใช้การเรียก DoAttack จากสคริปต์อื่นแทน
     }
 
     private void DoAttack(AttackType type)

@@ -13,19 +13,6 @@ public class Player : MonoBehaviour
 
     //now it's can't dash, but you can add it back if you want
     [Header("Dash Settings")]
-    /**
-    [SerializeField] private float dashPower = 25f;
-    [SerializeField] private int dashCounter = 0;
-    [SerializeField] private float dashTime = 0.2f;
-    [SerializeField] private float dashCooldown = 2f;
-    */
-
-    //[SerializeField] private float dashPower = 5f;
-    //[SerializeField] private float dashTime = 0.1f;
-    //[SerializeField] private float dashCooldown = 2f;
-    //private bool canDash = true;
-    //private bool isDashing = false;
-
     private bool canDash = true;
     private bool isDashing;
     private float dashingPower = 100f;
@@ -183,7 +170,6 @@ public class Player : MonoBehaviour
         body.velocity = new Vector2(body.velocity.x, jumpForce);
         ground = false;
         anim.SetTrigger("jump");
-        jumpSoundEffect?.Play();
     }
 
     private bool IsGrounded()
@@ -228,65 +214,6 @@ public class Player : MonoBehaviour
         yield return new WaitForSeconds(dashingCooldown);
         canDash = true;
     }
-
-    // Dash functionality (optional, can be removed if not needed) 21-6-68
-    /**
-    private void Dash()
-    {
-        dashCounter++;
-        body.constraints |= RigidbodyConstraints2D.FreezePositionY; // Freeze all movement
-        Vector2 dashDirection = new Vector2(horizontalInput, 0).normalized; // Dash direction based on facing
-        body.velocity = dashDirection * dashPower;
-        tr.emitting = true; // Start trail effect
-        Invoke("enbleCharacterMovement", dashTime); // Unfreeze after dash time     
-    }
-    private void enbleCharacterMovement()
-    {
-        body.constraints &= ~RigidbodyConstraints2D.FreezePositionY; // Unfreeze vertical movement
-        tr.emitting = false; // Stop trail effect
-    }
-    **/
-
-    //Dash with early stop on landing
-    //private IEnumerator Dash()
-    //{
-    //    canDash = false;
-    //    isDashing = true;
-
-    //    float dir = Mathf.Sign(transform.localScale.x);
-    //    tr.emitting = true;
-    //    dashSoundEffect?.Play();
-
-    //    float elapsed = 0f;
-    //    while (elapsed < dashTime)
-    //    {
-    //        // Apply dash horizontal velocity
-    //        body.velocity = new Vector2(dir * dashPower, body.velocity.y);
-
-    //        // Stop dash early if we touch ground to avoid sliding
-    //        if (ground)
-    //        {
-    //            canDash = true;
-    //            isDashing = false;
-    //            break;
-    //        }
-
-    //        elapsed += Time.deltaTime;
-    //        yield return null;
-    //    }
-
-    //    tr.emitting = false;
-    //    isDashing = false;
-
-    //    // If grounded or no input, stop horizontal movement
-    //    if (ground || Mathf.Abs(horizontalInput) < 0.01f)
-    //    {
-    //        body.velocity = new Vector2(0f, body.velocity.y);
-    //    }
-
-    //    yield return new WaitForSeconds(dashCooldown);
-    //    canDash = true;
-    //}
 
     // Functions for Animation Events
     public void OnAttackStart()
