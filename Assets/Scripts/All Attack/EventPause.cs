@@ -1,12 +1,13 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections;
 
 public class EventPause : MonoBehaviour
 {
-    public Animator animator;   // Animator ของตัวละคร
-    public string animationName = "Kaisa-ltimate"; // ชื่อ animation
-    public float freezeDuration = 3f; // เวลาที่ค้างไว้
-    public bool autoTriggerOnStart = false; // เรียกเองตอน Start หรือไม่
+    public Player player; // ????????????????? Player
+    public Animator animator;   // Animator ??????????
+    public string animationName = "Kaisa-ltimate"; // ???? animation
+    public float freezeDuration = 3f; // ??????????????
+    public bool autoTriggerOnStart = false; // ??????????? Start ???????
 
     private bool hasPlayed = false;
 
@@ -28,11 +29,11 @@ public class EventPause : MonoBehaviour
     {
         hasPlayed = true;
 
-        // ตั้ง Animator ให้เล่น animation โดยใช้ Unscaled Time
+        // ???? Animator ??????? animation ?????? Unscaled Time
         animator.updateMode = AnimatorUpdateMode.UnscaledTime;
         animator.Play(animationName, 0, 0);
 
-        // รอจน animation เล่นจบ 1 รอบ
+        // ???? animation ?????? 1 ???
         AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(0);
         while (state.normalizedTime < 1.0f)
         {
@@ -40,15 +41,18 @@ public class EventPause : MonoBehaviour
             state = animator.GetCurrentAnimatorStateInfo(0);
         }
 
-        // Freeze pose ปัจจุบัน
+        // Freeze pose ????????
         animator.speed = 0f;
 
-        // ค้างไว้ freezeDuration วินาที (ไม่โดน TimeScale)
-        yield return new WaitForSecondsRealtime(freezeDuration);
+        // ???????? player.isUltimating ?????? false ?????????????
+        while (player.isUltimating)
+        {
+            yield return null;
+        }
 
-        // กลับมาเล่นปกติ
+        // ??????????????
         animator.speed = 1f;
-        // ปิดตัวเอง ไม่ให้ทำงานซ้ำ
+        // ????????? ??????????????
         enabled = false;
     }
 }

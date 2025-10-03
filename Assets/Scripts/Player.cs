@@ -50,8 +50,16 @@ public class Player : MonoBehaviour
     [Header("Ultimate Skill")]
     [SerializeField] private float ultimateCooldown = 8f;
     private bool canUltimate = true;
-    private bool isUltimating = false;
+    public bool isUltimating = false;
     private float ultimateTimer = 0f;
+    [SerializeField] private float ultimateDashPower = 50f; // Dash power for ultimate
+    private bool waitingForGroundUltimate = false; // Flag for waiting ultimate
+
+    [Header("Event Animation")]
+    [SerializeField] private string eventAnimationTrigger = "ulti"; // Event animation trigger name
+    [SerializeField] private float freezeDuration = 3f; // Freeze duration after animation
+    [SerializeField] private bool autoTriggerOnStart = false; // Auto trigger on start
+    private bool hasPlayedEventAnimation = false;
 
     private void Awake()
     {
@@ -60,17 +68,36 @@ public class Player : MonoBehaviour
         anim = GetComponent<Animator>();
     }
 
+    private void Start()
+    {
+        // Debug animator parameters on start for troubleshooting
+        DebugAnimatorParameters();
+        
+        // Initialize states
+        waitingForGroundUltimate = false;
+        isUltimating = false;
+        canUltimate = true;
+        
+        Debug.Log("Player initialized - Ultimate system ready");
+    }
+
     private void Update()
     {
-        if (isDashing || isUltimating)
+        // Ultimate has highest priority - block all other inputs when ultimate is active
+        if (isUltimating)
         {
-            // Disable input during dash or ultimate
+            // Only allow ultimate input, block everything else
             return;
         }
+        
+        if (isDashing)
+        {
+            // Disable input during dash
+            return;
+        }
+        
         // Move left-right
         horizontalInput = Input.GetAxis("Horizontal");
-
-        // Removed early return: still update animator while dashing
 
         // Crouch (S)
         if (Input.GetKey(KeyCode.S) && IsGrounded())
@@ -123,16 +150,50 @@ public class Player : MonoBehaviour
             }
         }
 
-        if (Input.GetKeyDown(KeyCode.L) && canDash) //!ground && dashCounter < 1 && Input.GetKeyDown(KeyCode.L) && horizontalInput != 0
+        if (Input.GetKeyDown(KeyCode.L) && canDash)
         {
             StartCoroutine(Dash());
         }
 
-        // Ultimate (K)
-        if (Input.GetKeyDown(KeyCode.K) && canUltimate)
+        // Ultimate (K) - Check conditions before allowing ultimate
+        if (Input.GetKeyDown(KeyCode.K) && canUltimate && !isUltimating && !waitingForGroundUltimate)
         {
-            Debug.Log("Ultimate Activated");
-            StartCoroutine(UltimateSkill());
+            Debug.Log($"K pressed - IsGrounded: {IsGrounded()}, canUltimate: {canUltimate}");
+            
+            // Must be on ground to use ultimate
+            if (IsGrounded())
+            {
+                Debug.Log("Executing ultimate immediately (on ground)");
+                // Stop current movement and execute ultimate
+                body.velocity = Vector2.zero;
+                StartCoroutine(UltimateSkill());
+            }
+            else
+            {
+                Debug.Log("Setting flag to wait for ground");
+                // Set flag to wait for ground
+                waitingForGroundUltimate = true;
+                canUltimate = false;
+            }
+        }
+        
+        // Check if waiting for ground and now grounded
+        if (waitingForGroundUltimate && IsGrounded())
+        {
+            Debug.Log("Ground detected while waiting - executing ultimate!");
+            waitingForGroundUltimate = false;
+            body.velocity = Vector2.zero;
+            
+            // Double check we can still execute ultimate
+            if (!isUltimating)
+            {
+                StartCoroutine(UltimateSkill());
+            }
+            else
+            {
+                Debug.LogWarning("Already ultimating - canceling ground ultimate");
+                canUltimate = true; // Reset availability
+            }
         }
 
         // Flip player (A, D)
@@ -147,20 +208,46 @@ public class Player : MonoBehaviour
             Jump();
         }
 
-        // Animator update
-        anim.SetBool("run", horizontalInput != 0 && ground && !isCrouching);
-        anim.SetBool("ground", ground);
-        anim.SetBool("crouch", isCrouching);
-        anim.SetFloat("yVelocity", body.velocity.y);
+        // Animator update - but not during ultimate
+        if (!isUltimating)
+        {
+            anim.SetBool("run", horizontalInput != 0 && ground && !isCrouching);
+            anim.SetBool("ground", ground);
+            anim.SetBool("crouch", isCrouching);
+            anim.SetFloat("yVelocity", body.velocity.y);
+        }
 
-        // Ultimate cooldown timer
-        if (!canUltimate)
+        // Ultimate cooldown timer - but not when waiting for ground
+        if (!canUltimate && !waitingForGroundUltimate)
         {
             ultimateTimer += Time.deltaTime;
             if (ultimateTimer >= ultimateCooldown)
             {
                 canUltimate = true;
                 ultimateTimer = 0f;
+                Debug.Log("Ultimate cooldown complete - can use ultimate again");
+            }
+        }
+        
+        // Reset waiting flag if ultimate becomes available again (safety reset)
+        if (canUltimate && waitingForGroundUltimate)
+        {
+            Debug.Log("Safety reset - clearing waiting flag");
+            waitingForGroundUltimate = false;
+        }
+
+        // Manual reset for debugging (R key)
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            Debug.Log("Manual ultimate system reset!");
+            waitingForGroundUltimate = false;
+            canUltimate = true;
+            isUltimating = false;
+            ultimateTimer = 0f;
+            Time.timeScale = 1f;
+            if (anim != null)
+            {
+                anim.updateMode = AnimatorUpdateMode.Normal;
             }
         }
     }
@@ -174,7 +261,19 @@ public class Player : MonoBehaviour
 
     private bool IsGrounded()
     {
+        bool wasGrounded = ground;
         ground = Physics2D.BoxCast(boxCollider.bounds.center, boxCollider.bounds.size, 0, Vector2.down, 0.1f, groundLayer);
+        
+        // Debug when ground state changes
+        if (wasGrounded != ground)
+        {
+            Debug.Log($"Ground state changed: {wasGrounded} -> {ground}");
+            if (waitingForGroundUltimate && ground)
+            {
+                Debug.Log("Ground detected while waiting for ultimate!");
+            }
+        }
+        
         return ground;
     }
 
@@ -182,8 +281,9 @@ public class Player : MonoBehaviour
     {
         if (collision.gameObject.tag == "Ground")
         {
-            //dashCounter = 0; // Reset dash counter when touching the ground
             ground = true;
+            
+            Debug.Log("Ground collision detected");
 
             // If landing while dashing, stop dash immediately to prevent sliding
             if (isDashing)
@@ -275,23 +375,268 @@ public class Player : MonoBehaviour
     // Ultimate Skill coroutine
     private IEnumerator UltimateSkill()
     {
-        Debug.Log("Working Ultimate Activated");
-        canUltimate = false;
+        // Set ultimating state (canUltimate is already false from input check)
         isUltimating = true;
-        anim.SetTrigger("ulti");
-        Debug.Log("Working anim Ultimate Activated");
-        // รอจนกว่าจะมี Animation Event เรียก EndUltimate()
+        
+        // Stop player movement immediately
+        body.velocity = Vector2.zero;
+        
+        // Stop time but keep ultimate animation running
+        Time.timeScale = 0f;
+        
+        // Set Animator to use Unscaled Time for ultimate animation
+        AnimatorUpdateMode originalUpdateMode = anim.updateMode;
+        anim.updateMode = AnimatorUpdateMode.UnscaledTime;
+        
+        // Check if trigger exists before using it
+        if (HasAnimatorParameter(eventAnimationTrigger))
+        {
+            anim.SetTrigger(eventAnimationTrigger);
+        }
+        else if (HasAnimatorParameter("ulti"))
+        {
+            anim.SetTrigger("ulti");
+        }
+        else if (HasAnimatorParameter("ultimate"))
+        {
+            anim.SetTrigger("ultimate");
+        }
+        else
+        {
+            Debug.LogError("No valid ultimate trigger found!");
+            // Reset states if no trigger found
+            isUltimating = false;
+            canUltimate = true; // Reset ultimate availability
+            Time.timeScale = 1f;
+            anim.updateMode = originalUpdateMode;
+            yield break;
+        }
+        
+        // Wait for animation event to call EndUltimate() - blocks all other inputs
         while (isUltimating)
         {
             yield return null;
         }
-        // หลังจากนี้จะเริ่ม cooldown
+        
+        // This part will only execute AFTER EndUltimate() is called from animation event
+        // Restore time and animator settings
+        Time.timeScale = 1f;
+        anim.updateMode = originalUpdateMode;
+        
+        // Dash player forward after ultimate ends
+        StartCoroutine(UltimateDash());
+    }
+
+    // Helper method to reset animator to idle state
+    private void ResetAnimatorToIdle()
+    {
+        // Reset all boolean parameters to false
+        anim.SetBool("run", false);
+        anim.SetBool("atk", false);
+        anim.SetBool("crouch", false);
+        anim.SetBool("ground", true);
+        
+        // Reset float parameters
+        anim.SetFloat("yVelocity", 0f);
+        
+        // If there's an idle trigger, use it
+        if (HasAnimatorParameter("idle"))
+        {
+            anim.SetTrigger("idle");
+        }
+    }
+
+    // Helper method to check if animator parameter exists
+    private bool HasAnimatorParameter(string paramName)
+    {
+        if (anim == null || anim.runtimeAnimatorController == null)
+            return false;
+            
+        foreach (AnimatorControllerParameter param in anim.parameters)
+        {
+            if (param.name == paramName)
+                return true;
+        }
+        return false;
+    }
+
+    // Ultimate dash after animation ends
+    private IEnumerator UltimateDash()
+    {
+        float originalGravity = body.gravityScale;
+        body.gravityScale = 0f; // Disable gravity during dash
+        
+        // Dash in facing direction
+        float dashDirection = transform.localScale.x;
+        Vector2 dashVelocity = new Vector2(dashDirection * ultimateDashPower, 0f);
+        body.velocity = dashVelocity;
+        
+        // Enable trail if available
+        if (tr != null)
+            tr.emitting = true;
+        
+        yield return new WaitForSeconds(0.3f); // Dash duration
+        
+        // Stop dash
+        body.gravityScale = originalGravity;
+        if (tr != null)
+            tr.emitting = false;
+            
+        // Restore normal movement
+        body.velocity = new Vector2(0f, body.velocity.y);
     }
 
     // Call this from animation event at the end of ultimate animation
     public void EndUltimate()
     {
-        Debug.Log("Stop Ultimate Activated");
-        isUltimating = false;
+        Debug.Log("EndUltimate called from Animation Event");
+        
+        if (isUltimating)
+        {
+            isUltimating = false;
+            
+            // Force return to idle immediately
+            ForceReturnToIdle();
+            
+            // Note: canUltimate will be reset by cooldown timer
+        }
+    }
+
+    // Force animator to return to idle state immediately
+    private void ForceReturnToIdle()
+    {
+        // Reset all animator parameters to idle state
+        anim.SetBool("run", false);
+        anim.SetBool("atk", false);
+        anim.SetBool("crouch", false);
+        anim.SetBool("ground", IsGrounded());
+        anim.SetFloat("yVelocity", body.velocity.y);
+        
+        // Force play idle animation directly
+        if (HasAnimatorParameter("idle"))
+        {
+            anim.SetTrigger("idle");
+        }
+        
+        // Alternative: Force play idle animation by name
+        if (anim.runtimeAnimatorController != null)
+        {
+            // Try to find and play idle animation directly
+            anim.Play("idle-K", 0, 0f); // Layer 0, normalized time 0
+        }
+    }
+
+    // Animation event method for ultimate effect (call this at the key frame)
+    public void UltimateEffect()
+    {
+        // Deal damage to all enemies in range
+        if (AttackPoint != null)
+        {
+            Collider2D[] enemies = Physics2D.OverlapCircleAll(AttackPoint.transform.position, radius * 2f, Enemy);
+            foreach (Collider2D enemy in enemies)
+            {
+                var healthComponent = enemy.GetComponent<HealthEnemy>();
+                if (healthComponent != null)
+                {
+                    healthComponent.TakeDamage(500); // Ultimate damage
+                }
+            }
+        }
+    }
+
+    // Helper method to debug all animator parameters
+    public void DebugAnimatorParameters()
+    {
+        Debug.Log("=== ANIMATOR PARAMETERS DEBUG ===");
+        if (anim == null || anim.runtimeAnimatorController == null)
+        {
+            Debug.LogWarning("Animator or RuntimeAnimatorController is null");
+            return;
+        }
+        
+        foreach (AnimatorControllerParameter param in anim.parameters)
+        {
+            string value = "";
+            switch (param.type)
+            {
+                case AnimatorControllerParameterType.Float:
+                    value = anim.GetFloat(param.name).ToString("F2");
+                    break;
+                case AnimatorControllerParameterType.Int:
+                    value = anim.GetInteger(param.name).ToString();
+                    break;
+                case AnimatorControllerParameterType.Bool:
+                    value = anim.GetBool(param.name).ToString();
+                    break;
+                case AnimatorControllerParameterType.Trigger:
+                    value = "Trigger";
+                    break;
+            }
+            Debug.Log($"Parameter: {param.name} ({param.type}) = {value}");
+        }
+        Debug.Log("=== ANIMATOR PARAMETERS DEBUG END ===");
+    }
+
+    // Event Animation methods - separate from ultimate
+    public void TriggerEventAnimation()
+    {
+        if (!hasPlayedEventAnimation && !string.IsNullOrEmpty(eventAnimationTrigger))
+        {
+            StartCoroutine(PlayEventAnimation());
+        }
+    }
+
+    private IEnumerator PlayEventAnimation()
+    {
+        hasPlayedEventAnimation = true;
+
+        // Set Animator to use Unscaled Time for event animation
+        AnimatorUpdateMode originalUpdateMode = anim.updateMode;
+        float originalAnimSpeed = anim.speed;
+        
+        anim.updateMode = AnimatorUpdateMode.UnscaledTime;
+        
+        // Use the same trigger as ultimate
+        if (HasAnimatorParameter(eventAnimationTrigger))
+        {
+            anim.SetTrigger(eventAnimationTrigger);
+        }
+        else
+        {
+            yield break;
+        }
+
+        // Wait for animation to start and complete
+        yield return new WaitForEndOfFrame();
+        
+        AnimatorStateInfo state = anim.GetCurrentAnimatorStateInfo(0);
+        while (state.normalizedTime < 1.0f)
+        {
+            yield return null;
+            state = anim.GetCurrentAnimatorStateInfo(0);
+        }
+
+        // Freeze animation pose for specified duration
+        anim.speed = 0f;
+        yield return new WaitForSecondsRealtime(freezeDuration);
+
+        // Restore original animation settings
+        anim.speed = originalAnimSpeed;
+        anim.updateMode = originalUpdateMode;
+    }
+
+    // Public method to reset event animation state
+    public void ResetEventAnimation()
+    {
+        hasPlayedEventAnimation = false;
+    }
+
+    // Wait for player to land on ground then execute ultimate
+    private IEnumerator WaitForGroundThenUltimate()
+    {
+        // This method is deprecated - now using flag system in Update()
+        // Keeping for reference but should not be called
+        Debug.LogWarning("WaitForGroundThenUltimate called - this method is deprecated!");
+        yield return null;
     }
 }
