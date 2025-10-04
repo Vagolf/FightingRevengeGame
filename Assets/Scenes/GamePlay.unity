@@ -10184,6 +10184,9 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 256
   tr: {fileID: 8690398305210679939}
+  dashingPower: 100
+  dashnigTime: 0.2
+  dashingCooldown: 1
   jumpSoundEffect: {fileID: 0}
   dashSoundEffect: {fileID: 0}
   boxCollider: {fileID: 5171602253783042991}
@@ -10198,11 +10201,23 @@ MonoBehaviour:
     m_Bits: 512
   damage: 10
   ultimateCooldown: 8
-  isUltimating: 0
-  ultimateDashPower: 50
-  eventAnimationTrigger: ulti
-  freezeDuration: 3
-  autoTriggerOnStart: 0
+  ultimateDamage: 500
+  ultimateHitRadiusMultiplier: 2
+  logUltimateCooldown: 1
+  ultimateTrigger: ulti
+  enableUltimateHitWarp: 1
+  ultimateHitWarpDistance: 10
+  ultimateHitWarpUseTrail: 1
+  ultimateWarpBlockLayers:
+    serializedVersion: 2
+    m_Bits: 8192
+  ultimateWarpSkin: 0.1
+  ultimateWarpUseColliderBounds: 1
+  ultimateWarpStartEffect: {fileID: 0}
+  ultimateWarpEndEffect: {fileID: 0}
+  spawnEffectsInUnscaledTime: 1
+  effectOffset: {x: 0, y: 0}
+  verboseUltimateLog: 1
 --- !u!114 &8690398305210679941
 MonoBehaviour:
   m_ObjectHideFlags: 0
