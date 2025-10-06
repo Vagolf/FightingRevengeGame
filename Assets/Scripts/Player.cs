@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
+using System; // added for Action
 
 public class Player : MonoBehaviour
 {
@@ -58,6 +59,7 @@ public class Player : MonoBehaviour
     [SerializeField] private float ultimateHitWarpDistance = 5f;
     [SerializeField] private bool ultimateHitWarpUseTrail = true;
     private bool ultimateHitWarpDone = false;
+    private bool ultimateDamageFired = false; // added missing declaration
 
     [Header("Ultimate Warp Collision")]
     [Tooltip("Layers ที่กันไม่ให้วาร์ปทะลุ")] [SerializeField] private LayerMask ultimateWarpBlockLayers;
@@ -73,6 +75,11 @@ public class Player : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool verboseUltimateLog = true; // toggle log รายละเอียด
     private bool lastRunAnimValue = false; // ตรวจจับการเปลี่ยนค่า run
+
+    // Events for camera / other systems
+    public static event Action<Player> OnAnyUltimateStart; // fired when any player starts ultimate
+    public static event Action<Player> OnAnyUltimateFinish; // fired when any player finishes ultimate
+    public static event Action<Player> OnAnyUltimateDamage; // fired first time ultimate damage event happens (for camera revert)
 
     private void Awake()
     {
@@ -213,6 +220,7 @@ public class Player : MonoBehaviour
         ultimateTimer = 0f;
         ultimateLastLoggedSecond = -1;
         ultimateHitWarpDone = false; // reset warp flag
+        ultimateDamageFired = false; // reset damage flag
         if (logUltimateCooldown) Debug.Log("[ULTI] Activated - entering time stop");
 
         body.velocity = Vector2.zero;
@@ -221,11 +229,21 @@ public class Player : MonoBehaviour
         anim.updateMode = AnimatorUpdateMode.UnscaledTime;
         if (!string.IsNullOrEmpty(ultimateTrigger))
             anim.SetTrigger(ultimateTrigger);
+
+        // Fire global event
+        OnAnyUltimateStart?.Invoke(this);
     }
 
     public void UltimateDamageEvent()
     {
         if (AttackPoint == null) return;
+
+        if (!ultimateDamageFired)
+        {
+            ultimateDamageFired = true;
+            OnAnyUltimateDamage?.Invoke(this); // notify camera to restore
+            if (verboseUltimateLog) Debug.Log("[ULTI] OnAnyUltimateDamage invoked");
+        }
 
         if (enableUltimateHitWarp && !ultimateHitWarpDone)
         {
@@ -324,6 +342,9 @@ public class Player : MonoBehaviour
         anim.SetFloat("yVelocity", 0f);
         anim.Play("idle-K", 0, 0f);
         if (logUltimateCooldown) Debug.Log("[ULTI] Finished and returned to idle");
+
+        // Fire global finish event
+        OnAnyUltimateFinish?.Invoke(this);
     }
 
     private void Jump()
