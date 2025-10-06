@@ -37,7 +37,11 @@ public class Player : MonoBehaviour
     public GameObject CrouchAttackPoint;
     public float crouchRadius = 1f;
     public LayerMask Enemy;
-    public float damage = 100f;
+    [Header("Damage Values")] public float damage = 100f; // legacy default
+    public float normalAttackDamage = 70f;
+    public float crouchAttackDamage = 180f;
+    public float crouchAttackCooldown = 4f;
+    private float crouchAttackTimer = 0f;
     private bool attack;
 
     [Header("Ultimate Skill")]
@@ -58,6 +62,8 @@ public class Player : MonoBehaviour
     [SerializeField] private bool enableUltimateHitWarp = true;
     [SerializeField] private float ultimateHitWarpDistance = 5f;
     [SerializeField] private bool ultimateHitWarpUseTrail = true;
+    [SerializeField] private bool ultimateWarpOnActivate = false; // วาร์ปทันทีตอนกดอัลติ (ไม่รอ damage event)
+    [SerializeField] private bool ultimateWarpUseBoxCast = true; // NEW: ใช้ BoxCast กันทะลุกำแพง (แทน Raycast)
     private bool ultimateHitWarpDone = false;
     private bool ultimateDamageFired = false; // added missing declaration
 
@@ -81,6 +87,9 @@ public class Player : MonoBehaviour
     public static event Action<Player> OnAnyUltimateFinish; // fired when any player finishes ultimate
     public static event Action<Player> OnAnyUltimateDamage; // fired first time ultimate damage event happens (for camera revert)
 
+    [Header("Ultimate Damage Point")]
+    [Tooltip("อ้างอิง UltimateDamagePoint (trigger) ถ้ามี เพื่อเปิดตอนอัลติ")] public UltimateDamagePoint ultimateDamagePoint;
+
     private void Awake()
     {
         body = GetComponent<Rigidbody2D>();
@@ -98,6 +107,10 @@ public class Player : MonoBehaviour
 
     private void Update()
     {
+        // cooldown update for crouch attack
+        if (crouchAttackTimer > 0f)
+            crouchAttackTimer -= Time.deltaTime;
+
         if (preparingUltimate)
         {
             // ระหว่างเตรียม Ultimate บังคับ run = false และไม่รับ input
@@ -142,11 +155,15 @@ public class Player : MonoBehaviour
             {
                 if (Input.GetKeyDown(KeyCode.J) && ground && !attack && !isDashing)
                 {
-                    body.velocity = new Vector2(0, body.velocity.y);
-                    anim.SetBool("run", false);
-                    anim.SetBool("atk", true);
-                    attack = true;
-                    speed = 0;
+                    if (crouchAttackTimer <= 0f)
+                    {
+                        body.velocity = new Vector2(0, body.velocity.y);
+                        anim.SetBool("run", false);
+                        anim.SetBool("atk", true);
+                        attack = true;
+                        speed = 0;
+                        crouchAttackTimer = crouchAttackCooldown;
+                    }
                 }
                 else if (!isDashing)
                 {
@@ -232,6 +249,16 @@ public class Player : MonoBehaviour
 
         // Fire global event
         OnAnyUltimateStart?.Invoke(this);
+
+        if (ultimateDamagePoint != null)
+            ultimateDamagePoint.gameObject.SetActive(true);
+
+        // NEW: warp immediately if option enabled
+        if (enableUltimateHitWarp && ultimateWarpOnActivate)
+        {
+            if (verboseUltimateLog) Debug.Log("[ULTI] Immediate warp on activate");
+            PerformUltimateWarp();
+        }
     }
 
     public void UltimateDamageEvent()
@@ -268,31 +295,52 @@ public class Player : MonoBehaviour
     private void PerformUltimateWarp()
     {
         ultimateHitWarpDone = true;
+        if (!enableUltimateHitWarp)
+            return;
+
         Vector3 startPos = transform.position;
-        // spawn start effect
         SpawnWarpEffect(ultimateWarpStartEffect, startPos + (Vector3)effectOffset, "start");
 
         float direction = transform.localScale.x >= 0 ? 1f : -1f;
-        float halfWidth = 0.0f;
+        float halfWidthExtra = 0.0f;
         if (ultimateWarpUseColliderBounds && boxCollider != null)
-            halfWidth = boxCollider.bounds.extents.x;
+            halfWidthExtra = boxCollider.bounds.extents.x;
 
-        Vector2 origin = startPos;
         Vector2 dir = new Vector2(direction, 0f);
-        float maxDistance = ultimateHitWarpDistance + halfWidth;
-        RaycastHit2D hit = Physics2D.Raycast(origin, dir, maxDistance, ultimateWarpBlockLayers);
-        Vector3 target = startPos + new Vector3(direction * ultimateHitWarpDistance, 0f, 0f);
-        if (hit.collider != null)
+        float desiredDistance = ultimateHitWarpDistance;
+        float allowedDistance = desiredDistance; // will adjust by cast
+
+        if (ultimateWarpUseBoxCast && boxCollider != null)
         {
-            float dist = hit.distance - ultimateWarpSkin - halfWidth;
-            if (dist < 0f) dist = 0f;
-            target = startPos + new Vector3(direction * dist, 0f, 0f);
-            if (verboseUltimateLog) Debug.Log($"[ULTI] Warp blocked by {hit.collider.name} @ {hit.point}, adjusted dist={dist:F2}");
+            // BoxCast using local collider size to detect obstacles
+            Vector2 castSize = boxCollider.size; // size in local space (BoxCast uses size, not bounds)
+            RaycastHit2D hit = Physics2D.BoxCast(startPos, castSize, 0f, dir, desiredDistance + halfWidthExtra, ultimateWarpBlockLayers);
+            if (hit.collider != null && hit.collider != boxCollider)
+            {
+                allowedDistance = hit.distance - ultimateWarpSkin;
+                if (allowedDistance < 0f) allowedDistance = 0f;
+                if (verboseUltimateLog) Debug.Log($"[ULTI] BoxCast blocked by {hit.collider.name} dist={hit.distance:F2} -> allow={allowedDistance:F2}");
+            }
+            else if (verboseUltimateLog)
+            {
+                Debug.Log($"[ULTI] BoxCast path clear dist={desiredDistance:F2}");
+            }
         }
-        else if (verboseUltimateLog)
+        else
         {
-            Debug.Log($"[ULTI] Warp free path dist={ultimateHitWarpDistance:F2}");
+            // fallback Raycast (original logic refined)
+            float maxDistance = desiredDistance + halfWidthExtra;
+            RaycastHit2D hit = Physics2D.Raycast(startPos, dir, maxDistance, ultimateWarpBlockLayers);
+            if (hit.collider != null)
+            {
+                allowedDistance = hit.distance - ultimateWarpSkin - halfWidthExtra;
+                if (allowedDistance < 0f) allowedDistance = 0f;
+                if (verboseUltimateLog) Debug.Log($"[ULTI] Raycast blocked by {hit.collider.name} -> allow={allowedDistance:F2}");
+            }
+            else if (verboseUltimateLog) Debug.Log($"[ULTI] Raycast free path dist={desiredDistance:F2}");
         }
+
+        Vector3 target = startPos + new Vector3(direction * allowedDistance, 0f, 0f);
 
         if (ultimateHitWarpUseTrail && tr != null)
         {
@@ -308,7 +356,7 @@ public class Player : MonoBehaviour
         }
 
         SpawnWarpEffect(ultimateWarpEndEffect, target + (Vector3)effectOffset, "end");
-        if (verboseUltimateLog) Debug.Log($"[ULTI] Warp executed to {target}");
+        if (verboseUltimateLog) Debug.Log($"[ULTI] Warp executed to {target} (allowedDist={allowedDistance:F2})");
     }
 
     private void SpawnWarpEffect(GameObject prefab, Vector3 position, string phase)
@@ -345,6 +393,9 @@ public class Player : MonoBehaviour
 
         // Fire global finish event
         OnAnyUltimateFinish?.Invoke(this);
+
+        if (ultimateDamagePoint != null)
+            ultimateDamagePoint.gameObject.SetActive(false);
     }
 
     private void Jump()
@@ -391,11 +442,12 @@ public class Player : MonoBehaviour
     public void Attack()
     {
         if (AttackPoint == null) return;
+        float usedDamage = normalAttackDamage; // normal standing
         Collider2D[] enemy = Physics2D.OverlapCircleAll(AttackPoint.transform.position, radius, Enemy);
         foreach (Collider2D enemyGameobject in enemy)
         {
             var hp = enemyGameobject.GetComponent<HealthEnemy>();
-            if (hp != null) hp.TakeDamage(damage);
+            if (hp != null) hp.TakeDamage(usedDamage);
         }
     }
 
@@ -406,7 +458,7 @@ public class Player : MonoBehaviour
         foreach (Collider2D enemyGameobject in enemy)
         {
             var hp = enemyGameobject.GetComponent<HealthEnemy>();
-            if (hp != null) hp.TakeDamage(damage * 3f);
+            if (hp != null) hp.TakeDamage(crouchAttackDamage);
         }
     }
 

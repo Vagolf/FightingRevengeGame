@@ -92,9 +92,9 @@ public class Enemy : MonoBehaviour
         }
 
         if (horizontalInput > 0.01f)
-            transform.localScale = new Vector3(10, 10, 1);
+            transform.localScale = new Vector3(1, 1, 1);
         else if (horizontalInput < -0.01f)
-            transform.localScale = new Vector3(-10, 10, 1);
+            transform.localScale = new Vector3(-1, 1, 1);
 
         if (Input.GetKeyDown(KeyCode.W) && IsGrounded() && !isCrouching)
         {

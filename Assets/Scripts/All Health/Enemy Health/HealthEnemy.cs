@@ -59,23 +59,7 @@ public class HealthEnemy : MonoBehaviour
         {
             currentHealth = Mathf.Clamp(currentHealth - damage, 0, startingHealth);
             healthBar.SetHealth(currentHealth);
-
-            // สร้าง popup ดาเมจ
-            if (popUpDamagePrefab != null)
-            {
-                GameObject popUp = Instantiate(popUpDamagePrefab, transform.position, Quaternion.identity);
-
-                // รองรับทั้ง TextMeshProUGUI และ TextMesh
-                var tmp = popUp.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-                if (tmp != null)
-                    tmp.text = damage.ToString();
-                else
-                {
-                    var tm = popUp.GetComponentInChildren<TextMesh>();
-                    if (tm != null)
-                        tm.text = damage.ToString();
-                }
-            }
+            SpawnPopup(damage);
 
             if (currentHealth <= 0 && !isDead)
             {
@@ -87,6 +71,38 @@ public class HealthEnemy : MonoBehaviour
                 anim.SetTrigger("hurt");
                 StartCoroutine(Invulnerability());
             }
+        }
+    }
+
+    // Ultimate multi-hit damage ignoring iFrames and using no timeScale dependent waits.
+    public void TakeDamageUltimate(float damage)
+    {
+        if (isDead) return;
+        // ignore isInvulnerable for ultimate
+        currentHealth = Mathf.Clamp(currentHealth - damage, 0, startingHealth);
+        healthBar.SetHealth(currentHealth);
+        SpawnPopup(damage);
+        if (currentHealth <= 0 && !isDead)
+        {
+            anim.SetTrigger("die");
+            isDead = true;
+        }
+        else
+        {
+            anim.SetTrigger("hurt"); // stay in hurt chain by repeated triggers
+        }
+    }
+
+    private void SpawnPopup(float damage)
+    {
+        if (popUpDamagePrefab == null) return;
+        GameObject popUp = Instantiate(popUpDamagePrefab, transform.position, Quaternion.identity);
+        var tmp = popUp.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+        if (tmp != null) tmp.text = damage.ToString();
+        else
+        {
+            var tm = popUp.GetComponentInChildren<TextMesh>();
+            if (tm != null) tm.text = damage.ToString();
         }
     }
 
