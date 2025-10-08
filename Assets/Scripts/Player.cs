@@ -90,6 +90,17 @@ public class Player : MonoBehaviour
     [Header("Ultimate Damage Point")]
     [Tooltip("อ้างอิง UltimateDamagePoint (trigger) ถ้ามี เพื่อเปิดตอนอัลติ")] public UltimateDamagePoint ultimateDamagePoint;
 
+    [Header("Ultimate Temp Collider Modify Event")] 
+    [SerializeField] private Vector2 ultimateEventColliderSize = new Vector2(62.60816f, -8.029781f);
+    [SerializeField] private Vector2 ultimateEventColliderOffset = new Vector2(-30.33441f, -2.078618f);
+    [SerializeField] private bool ultimateEventColliderSetTrigger = true;
+    [SerializeField] private bool logUltimateColliderEvent = true;
+
+    private Vector2 _origColSize; // original size cache
+    private Vector2 _origColOffset; // original offset cache
+    private bool _origColIsTrigger; // original trigger state
+    private bool _colliderModifiedViaEvent; // flag to track modification state
+
     private void Awake()
     {
         body = GetComponent<Rigidbody2D>();
@@ -272,10 +283,7 @@ public class Player : MonoBehaviour
             if (verboseUltimateLog) Debug.Log("[ULTI] OnAnyUltimateDamage invoked");
         }
 
-        if (enableUltimateHitWarp && !ultimateHitWarpDone)
-        {
-            PerformUltimateWarp();
-        }
+        // Warp removed from here; call UltimateWarpEvent via separate animation event if needed.
 
         float hitRadius = radius * ultimateHitRadiusMultiplier;
         Collider2D[] enemies = Physics2D.OverlapCircleAll(AttackPoint.transform.position, hitRadius, Enemy);
@@ -290,6 +298,18 @@ public class Player : MonoBehaviour
             }
         }
         if (logUltimateCooldown) Debug.Log($"[ULTI] Damage Event executed. Hits: {hitCount}");
+    }
+
+    // Animation Event: perform warp separately (call before damage event if needed)
+    public void UltimateWarpEvent()
+    {
+        if (!enableUltimateHitWarp) return;
+        if (ultimateHitWarpDone)
+        {
+            if (verboseUltimateLog) Debug.Log("[ULTI] UltimateWarpEvent skipped (already warped)");
+            return;
+        }
+        PerformUltimateWarp();
     }
 
     private void PerformUltimateWarp()
@@ -391,12 +411,18 @@ public class Player : MonoBehaviour
         anim.Play("idle-K", 0, 0f);
         if (logUltimateCooldown) Debug.Log("[ULTI] Finished and returned to idle");
 
-        // Fire global finish event
         OnAnyUltimateFinish?.Invoke(this);
 
-        if (ultimateDamagePoint != null)
-            ultimateDamagePoint.gameObject.SetActive(false);
+        if (_colliderModifiedViaEvent && boxCollider != null)
+        {
+            boxCollider.size = _origColSize;
+            boxCollider.offset = _origColOffset;
+            boxCollider.isTrigger = _origColIsTrigger;
+            _colliderModifiedViaEvent = false;
+            if (logUltimateColliderEvent) Debug.Log("[ULTI][COL] Auto-restore on finish");
+        }
     }
+
 
     private void Jump()
     {
@@ -505,4 +531,71 @@ public class Player : MonoBehaviour
         if (verboseUltimateLog) Debug.Log($"[ULTI] Post-Yield State: runParam={anim.GetBool("run")}, yVel={body.velocity.y:F3}");
         StartUltimate();
     }
+
+    // Animation Event: enlarge / change collider temporarily
+    public void UltimateColliderEnlargeEvent()
+    {
+        if (boxCollider == null) return;
+        if (_colliderModifiedViaEvent)
+        {
+            if (logUltimateColliderEvent) Debug.Log("[ULTI][COL] Enlarge skipped (already modified)");
+            return;
+        }
+        _origColSize = boxCollider.size;
+        _origColOffset = boxCollider.offset;
+        _origColIsTrigger = boxCollider.isTrigger;
+
+        boxCollider.size = ultimateEventColliderSize;
+        boxCollider.offset = ultimateEventColliderOffset;
+        if (ultimateEventColliderSetTrigger) boxCollider.isTrigger = true;
+        _colliderModifiedViaEvent = true;
+        if (logUltimateColliderEvent)
+            Debug.Log($"[ULTI][COL] Enlarge -> size={ultimateEventColliderSize} offset={ultimateEventColliderOffset} trigger={boxCollider.isTrigger}");
+    }
+
+    // Animation Event: restore collider to original values
+    //public void UltimateColliderRestoreEvent()
+    //{
+    //    if (boxCollider == null) return;
+    //    if (!_colliderModifiedViaEvent)
+    //    {
+    //        if (logUltimateColliderEvent) Debug.Log("[ULTI][COL] Restore skipped (not modified)");
+    //        return;
+    //    }
+    //    boxCollider.size = _origColSize;
+    //    boxCollider.offset = _origColOffset;
+    //    boxCollider.isTrigger = _origColIsTrigger;
+    //    _colliderModifiedViaEvent = false;
+    //    if (logUltimateColliderEvent)
+    //        Debug.Log($"[ULTI][COL] Restored -> size={_origColSize} offset={_origColOffset} trigger={_origColIsTrigger}");
+    //}
+
+    // Safety: ensure collider restored when ultimate finishes
+    //public void UltimateFinishEvent()
+    //{
+    //    if (verboseUltimateLog) Debug.Log("[ULTI] UltimateFinishEvent called");
+    //    Time.timeScale = 1f;
+    //    anim.updateMode = AnimatorUpdateMode.Normal;
+    //    inUltimate = false;
+
+    //    anim.ResetTrigger(ultimateTrigger);
+    //    anim.SetBool("run", false);
+    //    anim.SetBool("atk", false);
+    //    anim.SetBool("crouch", false);
+    //    anim.SetFloat("yVelocity", 0f);
+    //    anim.Play("idle-K", 0, 0f);
+    //    if (logUltimateCooldown) Debug.Log("[ULTI] Finished and returned to idle");
+
+    //    // Fire global finish event
+    //    OnAnyUltimateFinish?.Invoke(this);
+
+    //    if (_colliderModifiedViaEvent && boxCollider != null)
+    //    {
+    //        boxCollider.size = _origColSize;
+    //        boxCollider.offset = _origColOffset;
+    //        boxCollider.isTrigger = _origColIsTrigger;
+    //        _colliderModifiedViaEvent = false;
+    //        if (logUltimateColliderEvent) Debug.Log("[ULTI][COL] Auto-restore on finish");
+    //    }
+    //}
 }

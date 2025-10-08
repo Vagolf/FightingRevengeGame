@@ -5977,7 +5977,7 @@ Transform:
   m_GameObject: {fileID: 7890485055779065181}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -7.11, y: -10.21, z: 0.09502016}
+  m_LocalPosition: {x: -17.2, y: -9.4, z: 0.09502016}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -8396,7 +8396,7 @@ BoxCollider2D:
     adaptiveTiling: 0
   m_AutoTiling: 0
   serializedVersion: 2
-  m_Size: {x: 1.9553137, y: 8.029781}
+  m_Size: {x: 1.955314, y: 8.029781}
   m_EdgeRadius: 0
 --- !u!114 &5206706593354638115
 MonoBehaviour:
@@ -10478,7 +10478,7 @@ MonoBehaviour:
   logUltimateCooldown: 1
   ultimateTrigger: ulti
   enableUltimateHitWarp: 1
-  ultimateHitWarpDistance: 30
+  ultimateHitWarpDistance: 50
   ultimateHitWarpUseTrail: 1
   ultimateWarpOnActivate: 0
   ultimateWarpUseBoxCast: 1
@@ -10493,6 +10493,10 @@ MonoBehaviour:
   effectOffset: {x: 0, y: 0}
   verboseUltimateLog: 1
   ultimateDamagePoint: {fileID: 8690398305210679943}
+  ultimateEventColliderSize: {x: 62.60816, y: 8.029781}
+  ultimateEventColliderOffset: {x: -30.33441, y: -2.078618}
+  ultimateEventColliderSetTrigger: 1
+  logUltimateColliderEvent: 1
 --- !u!114 &8690398305210679941
 MonoBehaviour:
   m_ObjectHideFlags: 0
