@@ -113,21 +113,14 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 2
+  - time: 1.8333334
     functionName: UltimateWarpEvent
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 2.1666667
-    functionName: UltimateColliderEnlargeEvent
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 3
+  - time: 2
     functionName: UltimateDamageEvent
     data: 
     objectReferenceParameter: {fileID: 0}

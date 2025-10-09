@@ -95,6 +95,13 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
+  - time: 0
+    functionName: NormalAttackLockMovement
+    data: 
+    objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
   - time: 0.35
     functionName: CrouchAttack
     data: 
@@ -104,6 +111,13 @@ AnimationClip:
     messageOptions: 0
   - time: 0.6666667
     functionName: OnAttackEnd
+    data: 
+    objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 0.6666667
+    functionName: NormalAttackUnlockMovement
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0

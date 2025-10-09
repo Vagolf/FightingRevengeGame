@@ -56,7 +56,7 @@ public class Player : MonoBehaviour
     private int ultimateLastLoggedSecond = -1;
 
     [Header("Ultimate Animation")]
-    [SerializeField] private string ultimateTrigger = "ulti";
+    [SerializeField] private string ultimateTrigger = " ulti ";
 
     [Header("Ultimate Warp On Hit")] // วาร์ปตอนเฟรมดาเมจ
     [SerializeField] private bool enableUltimateHitWarp = true;
@@ -90,16 +90,22 @@ public class Player : MonoBehaviour
     [Header("Ultimate Damage Point")]
     [Tooltip("อ้างอิง UltimateDamagePoint (trigger) ถ้ามี เพื่อเปิดตอนอัลติ")] public UltimateDamagePoint ultimateDamagePoint;
 
-    [Header("Ultimate Temp Collider Modify Event")] 
-    [SerializeField] private Vector2 ultimateEventColliderSize = new Vector2(62.60816f, -8.029781f);
-    [SerializeField] private Vector2 ultimateEventColliderOffset = new Vector2(-30.33441f, -2.078618f);
-    [SerializeField] private bool ultimateEventColliderSetTrigger = true;
-    [SerializeField] private bool logUltimateColliderEvent = true;
-
     private Vector2 _origColSize; // original size cache
     private Vector2 _origColOffset; // original offset cache
     private bool _origColIsTrigger; // original trigger state
     private bool _colliderModifiedViaEvent; // flag to track modification state
+
+    [Header("Ultimate Box Area")] 
+    [SerializeField] private bool ultimateUseBox = false;
+    [SerializeField] private Vector2 ultimateBoxSize = new Vector2(4f, 2f);
+    [SerializeField] private float ultimateBoxAngle = 0f;
+
+    [Header("Ultimate Attack Point")]
+    [SerializeField] private Transform UltimateAttackPoint; // optional separate point for ultimate AOE
+
+    [Header("Air Jump")]
+    [SerializeField] private int extraJumpsMax = 1; // 1 = double jump
+    private int extraJumps;
 
     private void Awake()
     {
@@ -114,6 +120,7 @@ public class Player : MonoBehaviour
         inUltimate = false;
         preparingUltimate = false;
         if (verboseUltimateLog) Debug.Log("[ULTI] Init complete");
+        extraJumps = extraJumpsMax; // init extra jumps
     }
 
     private void Update()
@@ -198,9 +205,22 @@ public class Player : MonoBehaviour
         else if (horizontalInput < -0.01f)
             transform.localScale = new Vector3(-1, 1, 1);
 
-        // Jump
-        if (Input.GetKeyDown(KeyCode.W) && IsGrounded() && !isCrouching)
-            Jump();
+        // Simple ground jump only
+        if (Input.GetKeyDown(KeyCode.W) && !isCrouching)
+        {
+            if (IsGrounded())
+            {
+                Jump();
+            }
+            else if (extraJumps > 0)
+            {
+                extraJumps--;
+                // ensure animation can re-trigger
+                anim.ResetTrigger("jump");
+                // reuse Jump() to keep animation/params consistent
+                Jump();
+            }
+        }
 
         // Animator update
         bool desiredRun = (horizontalInput != 0 && ground && !isCrouching);
@@ -236,6 +256,16 @@ public class Player : MonoBehaviour
                 if (logUltimateCooldown)
                     Debug.Log("[ULTI] Ready!");
             }
+        }
+
+        // Block all player control while movement is locked by normal attack
+        if (movementLocked)
+        {
+            // freeze horizontal speed but keep gravity
+            body.velocity = new Vector2(0f, body.velocity.y);
+            anim.SetBool("run", false);
+            // ignore further input this frame
+            return;
         }
     }
 
@@ -274,7 +304,7 @@ public class Player : MonoBehaviour
 
     public void UltimateDamageEvent()
     {
-        if (AttackPoint == null) return;
+        if (AttackPoint == null && UltimateAttackPoint == null) return;
 
         if (!ultimateDamageFired)
         {
@@ -283,18 +313,37 @@ public class Player : MonoBehaviour
             if (verboseUltimateLog) Debug.Log("[ULTI] OnAnyUltimateDamage invoked");
         }
 
-        // Warp removed from here; call UltimateWarpEvent via separate animation event if needed.
+        // center of ultimate hit
+        Vector2 center = UltimateAttackPoint != null ? (Vector2)UltimateAttackPoint.position : (Vector2)AttackPoint.transform.position;
 
-        float hitRadius = radius * ultimateHitRadiusMultiplier;
-        Collider2D[] enemies = Physics2D.OverlapCircleAll(AttackPoint.transform.position, hitRadius, Enemy);
         int hitCount = 0;
-        foreach (var e in enemies)
+        if (ultimateUseBox)
         {
-            var hp = e.GetComponent<HealthEnemy>();
-            if (hp != null)
+            // Rectangular AOE
+            Collider2D[] enemies = Physics2D.OverlapBoxAll(center, ultimateBoxSize, ultimateBoxAngle, Enemy);
+            foreach (var e in enemies)
             {
-                hp.TakeDamage(ultimateDamage);
-                hitCount++;
+                var hp = e.GetComponent<HealthEnemy>();
+                if (hp != null)
+                {
+                    hp.TakeDamage(ultimateDamage);
+                    hitCount++;
+                }
+            }
+        }
+        else
+        {
+            // Circular AOE
+            float hitRadius = radius * ultimateHitRadiusMultiplier;
+            Collider2D[] enemies = Physics2D.OverlapCircleAll(center, hitRadius, Enemy);
+            foreach (var e in enemies)
+            {
+                var hp = e.GetComponent<HealthEnemy>();
+                if (hp != null)
+                {
+                    hp.TakeDamage(ultimateDamage);
+                    hitCount++;
+                }
             }
         }
         if (logUltimateCooldown) Debug.Log($"[ULTI] Damage Event executed. Hits: {hitCount}");
@@ -413,21 +462,20 @@ public class Player : MonoBehaviour
 
         OnAnyUltimateFinish?.Invoke(this);
 
-        if (_colliderModifiedViaEvent && boxCollider != null)
-        {
-            boxCollider.size = _origColSize;
-            boxCollider.offset = _origColOffset;
-            boxCollider.isTrigger = _origColIsTrigger;
-            _colliderModifiedViaEvent = false;
-            if (logUltimateColliderEvent) Debug.Log("[ULTI][COL] Auto-restore on finish");
-        }
     }
 
 
     private void Jump()
     {
-        body.velocity = new Vector2(body.velocity.x, jumpForce);
+        // force leave idle/run immediately
         ground = false;
+        anim.SetBool("run", false);
+        anim.SetBool("crouch", false);
+        anim.SetBool("ground", false);
+        anim.ResetTrigger("atk");
+
+        // apply jump
+        body.velocity = new Vector2(body.velocity.x, jumpForce);
         anim.SetTrigger("jump");
     }
 
@@ -442,6 +490,7 @@ public class Player : MonoBehaviour
         if (collision.gameObject.tag == "Ground")
         {
             ground = true;
+            extraJumps = extraJumpsMax; // reset double jump on landing
         }
     }
 
@@ -490,16 +539,29 @@ public class Player : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
+        // base attack point (red)
         if (AttackPoint != null)
         {
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(AttackPoint.transform.position, radius);
         }
-        if (AttackPoint != null)
+
+        // ultimate point center
+        Vector3 ultiCenter = (UltimateAttackPoint != null)
+            ? UltimateAttackPoint.position
+            : (AttackPoint != null ? AttackPoint.transform.position : transform.position);
+
+        if (ultimateUseBox)
+        {
+            Gizmos.color = Color.magenta;
+            Gizmos.DrawWireCube(ultiCenter, ultimateBoxSize);
+        }
+        else
         {
             Gizmos.color = Color.yellow;
-            Gizmos.DrawWireSphere(AttackPoint.transform.position, radius * ultimateHitRadiusMultiplier);
+            Gizmos.DrawWireSphere(ultiCenter, radius * ultimateHitRadiusMultiplier);
         }
+
         if (CrouchAttackPoint != null)
         {
             Gizmos.color = Color.blue;
@@ -532,70 +594,25 @@ public class Player : MonoBehaviour
         StartUltimate();
     }
 
-    // Animation Event: enlarge / change collider temporarily
-    public void UltimateColliderEnlargeEvent()
-    {
-        if (boxCollider == null) return;
-        if (_colliderModifiedViaEvent)
-        {
-            if (logUltimateColliderEvent) Debug.Log("[ULTI][COL] Enlarge skipped (already modified)");
-            return;
-        }
-        _origColSize = boxCollider.size;
-        _origColOffset = boxCollider.offset;
-        _origColIsTrigger = boxCollider.isTrigger;
+    [Header("Movement Lock (Normal Attack)")]
+    [SerializeField] private bool logMovementLock = true;
+    private bool movementLocked = false;
 
-        boxCollider.size = ultimateEventColliderSize;
-        boxCollider.offset = ultimateEventColliderOffset;
-        if (ultimateEventColliderSetTrigger) boxCollider.isTrigger = true;
-        _colliderModifiedViaEvent = true;
-        if (logUltimateColliderEvent)
-            Debug.Log($"[ULTI][COL] Enlarge -> size={ultimateEventColliderSize} offset={ultimateEventColliderOffset} trigger={boxCollider.isTrigger}");
+    // Animation Event: lock movement during normal attack animation
+    public void NormalAttackLockMovement()
+    {
+        movementLocked = true;
+        // stop horizontal motion immediately
+        if (body != null) body.velocity = new Vector2(0f, body.velocity.y);
+        if (logMovementLock) Debug.Log("[ATK] Movement locked");
     }
 
-    // Animation Event: restore collider to original values
-    //public void UltimateColliderRestoreEvent()
-    //{
-    //    if (boxCollider == null) return;
-    //    if (!_colliderModifiedViaEvent)
-    //    {
-    //        if (logUltimateColliderEvent) Debug.Log("[ULTI][COL] Restore skipped (not modified)");
-    //        return;
-    //    }
-    //    boxCollider.size = _origColSize;
-    //    boxCollider.offset = _origColOffset;
-    //    boxCollider.isTrigger = _origColIsTrigger;
-    //    _colliderModifiedViaEvent = false;
-    //    if (logUltimateColliderEvent)
-    //        Debug.Log($"[ULTI][COL] Restored -> size={_origColSize} offset={_origColOffset} trigger={_origColIsTrigger}");
-    //}
+    // Animation Event: unlock movement after normal attack animation
+    public void NormalAttackUnlockMovement()
+    {
+        movementLocked = false;
+        if (logMovementLock) Debug.Log("[ATK] Movement unlocked");
+    }
+    
 
-    // Safety: ensure collider restored when ultimate finishes
-    //public void UltimateFinishEvent()
-    //{
-    //    if (verboseUltimateLog) Debug.Log("[ULTI] UltimateFinishEvent called");
-    //    Time.timeScale = 1f;
-    //    anim.updateMode = AnimatorUpdateMode.Normal;
-    //    inUltimate = false;
-
-    //    anim.ResetTrigger(ultimateTrigger);
-    //    anim.SetBool("run", false);
-    //    anim.SetBool("atk", false);
-    //    anim.SetBool("crouch", false);
-    //    anim.SetFloat("yVelocity", 0f);
-    //    anim.Play("idle-K", 0, 0f);
-    //    if (logUltimateCooldown) Debug.Log("[ULTI] Finished and returned to idle");
-
-    //    // Fire global finish event
-    //    OnAnyUltimateFinish?.Invoke(this);
-
-    //    if (_colliderModifiedViaEvent && boxCollider != null)
-    //    {
-    //        boxCollider.size = _origColSize;
-    //        boxCollider.offset = _origColOffset;
-    //        boxCollider.isTrigger = _origColIsTrigger;
-    //        _colliderModifiedViaEvent = false;
-    //        if (logUltimateColliderEvent) Debug.Log("[ULTI][COL] Auto-restore on finish");
-    //    }
-    //}
 }
