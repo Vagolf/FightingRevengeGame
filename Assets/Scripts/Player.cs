@@ -125,6 +125,12 @@ public class Player : MonoBehaviour
 
     private void Update()
     {
+        // Block all player logic while global gate is active (e.g., countdown running)
+        if (Timer.GateBlocked)
+        {
+            if (anim) anim.SetBool("run", false);
+            return;
+        }
         // cooldown update for crouch attack
         if (crouchAttackTimer > 0f)
             crouchAttackTimer -= Time.deltaTime;

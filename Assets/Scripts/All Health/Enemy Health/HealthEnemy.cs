@@ -118,4 +118,34 @@ public class HealthEnemy : MonoBehaviour
         }
         isInvulnerable = false;
     }
+
+    // Revive and restore to full for a new round
+    public void ResetForNewRound()
+    {
+        StopAllCoroutines();
+        isInvulnerable = false;
+        isDead = false;
+        gameObject.SetActive(true);
+        currentHealth = startingHealth;
+        if (healthBar != null)
+        {
+            healthBar.setMaxHealth(startingHealth);
+            healthBar.SetHealth(currentHealth);
+        }
+        if (spriteRend != null)
+        {
+            spriteRend.enabled = true;
+            spriteRend.color = Color.white;
+        }
+        if (anim != null)
+        {
+            anim.ResetTrigger("die");
+            anim.ResetTrigger("hurt");
+            anim.Update(0f);
+        }
+        var enemyCtrl = GetComponent<Enemy>();
+        if (enemyCtrl != null) enemyCtrl.enabled = true;
+        var rb = GetComponent<Rigidbody2D>();
+        if (rb != null) rb.velocity = Vector2.zero;
+    }
 }

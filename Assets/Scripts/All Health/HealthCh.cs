@@ -79,4 +79,36 @@ public class HealthCh : MonoBehaviour
         yield return new WaitForSeconds(hurtAnimDuration);
         isHurting = false;
     }
+
+    // Revive and restore to full for a new round
+    public void ResetForNewRound()
+    {
+        // stop any running routines
+        StopAllCoroutines();
+        isHurting = false;
+        isDead = false;
+        gameObject.SetActive(true);
+        currentHealth = startingHealth;
+        if (healthBar != null)
+        {
+            healthBar.setMaxHealth(startingHealth);
+            healthBar.SetHealth(currentHealth);
+        }
+        if (spriteRend != null)
+        {
+            spriteRend.enabled = true;
+            spriteRend.color = Color.white;
+        }
+        if (anim != null)
+        {
+            // clear common states
+            anim.ResetTrigger("die");
+            anim.ResetTrigger("hurt");
+            anim.Update(0f);
+        }
+        var player = GetComponent<Player>();
+        if (player != null) player.enabled = true;
+        var rb = GetComponent<Rigidbody2D>();
+        if (rb != null) rb.velocity = Vector2.zero;
+    }
 }
