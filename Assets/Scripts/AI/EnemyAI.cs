@@ -42,7 +42,13 @@ public class EnemyAI : MonoBehaviour
 
     private void Update()
     {
-        if (Timer.GateBlocked) { rb.velocity = new Vector2(0f, rb.velocity.y); SetRun(false); return; }
+        if (Timer.GateBlocked)
+        {
+            // stop sliding while countdown
+            rb.velocity = new Vector2(0f, rb.velocity.y);
+            SetRun(false);
+            return;
+        }
         if (player == null)
         {
             var p = GameObject.FindGameObjectWithTag(playerTag);
@@ -73,11 +79,12 @@ public class EnemyAI : MonoBehaviour
             // ????????????
             rb.velocity = new Vector2(dir * moveSpeed, rb.velocity.y);
             SetRun(true);
-            // start timer when we first engage
+            // start timer when we first engage (only if timer not already running)
             if (!combatStarted)
             {
                 var timer = FindObjectOfType<Timer>();
-                if (timer != null) timer.Restart(3f, 120f);
+                if (timer != null && !timer.IsCountingDown && !timer.IsRunning)
+                    timer.Restart(3f, 120f);
                 combatStarted = true;
             }
         }
@@ -89,7 +96,8 @@ public class EnemyAI : MonoBehaviour
             if (!combatStarted)
             {
                 var timer = FindObjectOfType<Timer>();
-                if (timer != null) timer.Restart(3f, 120f);
+                if (timer != null && !timer.IsCountingDown && !timer.IsRunning)
+                    timer.Restart(3f, 120f);
                 combatStarted = true;
             }
             TryAttack();

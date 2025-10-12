@@ -22,7 +22,7 @@ public class CamaraPlayer : MonoBehaviour
     private float originalFOV;
     private bool inUltimateSequence;
     private bool trackingCurrentUltimate;
-    private Player currentUltimatePlayer;
+    private Transform currentUltimateTarget;
     private Coroutine transitionRoutine;
     private Coroutine fovRestoreRoutine;
 
@@ -41,31 +41,39 @@ public class CamaraPlayer : MonoBehaviour
 
     private void OnEnable()
     {
-        Player.OnAnyUltimateStart += HandleUltimateStart;
-        Player.OnAnyUltimateDamage += HandleUltimateDamage; // new: restore when damage frame happens
-        Player.OnAnyUltimateFinish += HandleUltimateFinish; // still restore in case finish without damage
+        UltimateEventBus.OnUltimateStart += HandleUltimateStart;
+        UltimateEventBus.OnUltimateDamage += HandleUltimateDamage; // new: restore when damage frame happens
+        UltimateEventBus.OnUltimateFinish += HandleUltimateFinish; // still restore in case finish without damage
     }
 
     private void OnDisable()
     {
-        Player.OnAnyUltimateStart -= HandleUltimateStart;
-        Player.OnAnyUltimateDamage -= HandleUltimateDamage;
-        Player.OnAnyUltimateFinish -= HandleUltimateFinish;
+        UltimateEventBus.OnUltimateStart -= HandleUltimateStart;
+        UltimateEventBus.OnUltimateDamage -= HandleUltimateDamage;
+        UltimateEventBus.OnUltimateFinish -= HandleUltimateFinish;
     }
 
     private void LateUpdate()
     {
-        if (trackingCurrentUltimate && followDuringUltimate && currentUltimatePlayer != null)
+        if (autoFindPlayer && currentUltimateTarget == null)
+        {
+            // fallback: follow active character tagged Player if needed
+            var p = CharacterSpawnManager.PlayerInstance;
+            if (p != null && p.activeInHierarchy)
+                currentUltimateTarget = p.transform;
+        }
+        if (trackingCurrentUltimate && followDuringUltimate && currentUltimateTarget != null)
         {
             // While focusing (before damage event) keep centering
-            Vector3 basePos = currentUltimatePlayer.transform.position + focusOffset;
+            Vector3 basePos = currentUltimateTarget.position + focusOffset;
             transform.position = Vector3.Lerp(transform.position, basePos, 15f * Time.unscaledDeltaTime);
         }
     }
 
-    private void HandleUltimateStart(Player p)
+    private void HandleUltimateStart(Transform t)
     {
-        currentUltimatePlayer = p;
+        Debug.Log($"[Camera] UltimateStart from {t?.name}");
+        currentUltimateTarget = t;
         trackingCurrentUltimate = followDuringUltimate; // enable follow until damage
 
         if (transitionRoutine != null) StopCoroutine(transitionRoutine);
@@ -79,20 +87,21 @@ public class CamaraPlayer : MonoBehaviour
         if (instantZoomIn)
         {
             inUltimateSequence = true;
-            Vector3 targetPos = (p ? p.transform.position : transform.position) + focusOffset;
+            Vector3 targetPos = (t ? t.position : transform.position) + focusOffset;
             transform.position = targetPos;
             if (cam.orthographic)
                 cam.orthographicSize = zoomSizeDuringUltimate;
         }
         else
         {
-            transitionRoutine = StartCoroutine(FocusToPlayer(p));
+            transitionRoutine = StartCoroutine(FocusToPlayer(t));
         }
     }
 
-    private void HandleUltimateDamage(Player p)
+    private void HandleUltimateDamage(Transform t)
     {
-        if (p != currentUltimatePlayer) return; // ignore if other player's ultimate
+        Debug.Log($"[Camera] UltimateDamage from {t?.name}");
+        if (t != currentUltimateTarget) return; // ignore if other target's ultimate
         trackingCurrentUltimate = false; // stop following immediately
         // Start restore immediately
         if (transitionRoutine != null) StopCoroutine(transitionRoutine);
@@ -100,9 +109,10 @@ public class CamaraPlayer : MonoBehaviour
         RestoreFOVIfNeeded();
     }
 
-    private void HandleUltimateFinish(Player p)
+    private void HandleUltimateFinish(Transform t)
     {
-        if (p != currentUltimatePlayer) return;
+        Debug.Log($"[Camera] UltimateFinish from {t?.name}");
+        if (t != currentUltimateTarget) return;
         // If already restoring from damage event skip duplicate
         if (!inUltimateSequence) return;
         if (transitionRoutine != null) StopCoroutine(transitionRoutine);
@@ -126,18 +136,18 @@ public class CamaraPlayer : MonoBehaviour
         }
     }
 
-    private IEnumerator FocusToPlayer(Player p)
+    private IEnumerator FocusToPlayer(Transform t)
     {
         inUltimateSequence = true;
         Vector3 startPos = transform.position;
         float startSize = cam.orthographic ? cam.orthographicSize : 0f;
-        Vector3 targetPos = (p ? p.transform.position : startPos) + focusOffset;
-        float t = 0f;
+        Vector3 targetPos = (t ? t.position : startPos) + focusOffset;
+        float progress = 0f;
         float dur = Mathf.Max(0.0001f, moveInTime);
-        while (t < 1f)
+        while (progress < 1f)
         {
-            t += Time.unscaledDeltaTime / dur; // timeScale = 0 ระหว่างอัลติ
-            float ease = Mathf.SmoothStep(0f, 1f, t);
+            progress += Time.unscaledDeltaTime / dur; // timeScale = 0 ระหว่างอัลติ
+            float ease = Mathf.SmoothStep(0f, 1f, progress);
             transform.position = Vector3.Lerp(startPos, targetPos, ease);
             if (cam.orthographic)
                 cam.orthographicSize = Mathf.Lerp(startSize, zoomSizeDuringUltimate, ease);
@@ -169,7 +179,7 @@ public class CamaraPlayer : MonoBehaviour
         if (cam.orthographic)
             cam.orthographicSize = endSize;
         inUltimateSequence = false;
-        currentUltimatePlayer = null;
+        currentUltimateTarget = null;
     }
 
     private IEnumerator RestoreFOV()

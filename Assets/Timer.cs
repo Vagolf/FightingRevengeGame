@@ -7,6 +7,8 @@ public class Timer : MonoBehaviour
 {
     // Global short gate: true = block other systems
     public static bool GateBlocked { get; private set; }
+    public bool IsCountingDown => countdownTime > 0f;
+    public bool IsRunning => countdownTime <= 0f && remainingTime > 0f;
     [SerializeField] TextMeshProUGUI timerText;
     [SerializeField] float remainingTime;
     [SerializeField] TextMeshProUGUI countdownText;

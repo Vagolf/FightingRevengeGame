@@ -121,6 +121,7 @@ public class Player : MonoBehaviour
         preparingUltimate = false;
         if (verboseUltimateLog) Debug.Log("[ULTI] Init complete");
         extraJumps = extraJumpsMax; // init extra jumps
+        if (tr) tr.emitting = false; // disable trail by default
     }
 
     private void Update()
@@ -296,6 +297,7 @@ public class Player : MonoBehaviour
 
         // Fire global event
         OnAnyUltimateStart?.Invoke(this);
+        UltimateEventBus.RaiseStart(transform);
 
         if (ultimateDamagePoint != null)
             ultimateDamagePoint.gameObject.SetActive(true);
@@ -316,6 +318,7 @@ public class Player : MonoBehaviour
         {
             ultimateDamageFired = true;
             OnAnyUltimateDamage?.Invoke(this); // notify camera to restore
+            UltimateEventBus.RaiseDamage(transform);
             if (verboseUltimateLog) Debug.Log("[ULTI] OnAnyUltimateDamage invoked");
         }
 
@@ -467,6 +470,7 @@ public class Player : MonoBehaviour
         if (logUltimateCooldown) Debug.Log("[ULTI] Finished and returned to idle");
 
         OnAnyUltimateFinish?.Invoke(this);
+        UltimateEventBus.RaiseFinish(transform);
 
     }
 
