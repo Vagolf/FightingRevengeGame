@@ -56,10 +56,10 @@ public class Roman : MonoBehaviour
     private int ultimateLastLoggedSecond = -1;
 
     [Header("Ultimate Animation")]
-    [SerializeField] private string ultimateTrigger = " ulti ";
+    [SerializeField] private string ultimateTrigger = "ulti"; // ensure this matches Animator parameter
 
-    [Header("Ultimate Warp On Hit")] // วาร์ปตอนเฟรมดาเมจ
-    [SerializeField] private bool enableUltimateHitWarp = true;
+    [Header("Ultimate Warp On Hit")] // วาร์ปตอนเฟรมดาเมจ (disabled)
+    [SerializeField] private bool enableUltimateHitWarp = false;
     [SerializeField] private float ultimateHitWarpDistance = 5f;
     [SerializeField] private bool ultimateHitWarpUseTrail = true;
     [SerializeField] private bool ultimateWarpOnActivate = false; // วาร์ปทันทีตอนกดอัลติ (ไม่รอ damage event)
@@ -81,6 +81,10 @@ public class Roman : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool verboseUltimateLog = true; // toggle log รายละเอียด
     private bool lastRunAnimValue = false; // ตรวจจับการเปลี่ยนค่า run
+
+    [Header("Animator States")]
+    [SerializeField] private string idleStateName = "idle"; // state name to return to after ultimate
+    [SerializeField] private string crouchStateName = "crouch"; // state to force when crouch starts
 
     // Events for camera / other systems
     public static event Action<Player> OnAnyUltimateStart; // fired when any player starts ultimate
@@ -118,7 +122,10 @@ public class Roman : MonoBehaviour
 
     private void Start()
     {
-        ultimateReady = true;
+        // start with ultimate on cooldown immediately
+        ultimateReady = false;
+        ultimateTimer = 0f;
+        ultimateLastLoggedSecond = -1;
         inUltimate = false;
         preparingUltimate = false;
         if (verboseUltimateLog) Debug.Log("[ULTI] Init complete");
@@ -133,6 +140,8 @@ public class Roman : MonoBehaviour
 
     private void Update()
     {
+        // Always tick ultimate cooldown even during gate
+        TickUltimateCooldown(Time.deltaTime);
         // Block all player logic while global gate is active (e.g., countdown running)
         if (Timer.GateBlocked)
         {
@@ -172,7 +181,17 @@ public class Roman : MonoBehaviour
         horizontalInput = Input.GetAxis("Horizontal");
 
         // Crouch
+        // force stop run immediately on crouch key down
+        if (Input.GetKeyDown(KeyCode.S) && ground)
+        {
+            ForceEnterCrouch();
+        }
         isCrouching = Input.GetKey(KeyCode.S) && ground;
+        // If crouch begins while running, force stop run immediately
+        if (isCrouching && anim != null && anim.GetBool("run"))
+        {
+            ForceEnterCrouch();
+        }
 
         // Attack (J)
         if (Input.GetKeyDown(KeyCode.J) && ground && !isCrouching && !attack && !isDashing)
@@ -253,29 +272,7 @@ public class Roman : MonoBehaviour
         anim.SetBool("crouch", isCrouching);
         anim.SetFloat("yVelocity", body.velocity.y);
 
-        // Ultimate Cooldown
-        if (!ultimateReady)
-        {
-            ultimateTimer += Time.deltaTime;
-            float remain = Mathf.Max(0f, ultimateCooldown - ultimateTimer);
-            if (logUltimateCooldown)
-            {
-                int sec = Mathf.CeilToInt(remain);
-                if (sec != ultimateLastLoggedSecond)
-                {
-                    Debug.Log($"[ULTI] Cooldown remaining: {remain:F2}s");
-                    ultimateLastLoggedSecond = sec;
-                }
-            }
-            if (ultimateTimer >= ultimateCooldown)
-            {
-                ultimateTimer = 0f;
-                ultimateReady = true;
-                ultimateLastLoggedSecond = -1;
-                if (logUltimateCooldown)
-                    Debug.Log("[ULTI] Ready!");
-            }
-        }
+        // cooldown already processed above
 
         // Block all player control while movement is locked by normal attack
         if (movementLocked)
@@ -301,11 +298,14 @@ public class Roman : MonoBehaviour
         if (logUltimateCooldown) Debug.Log("[ULTI] Activated - entering time stop");
 
         body.velocity = Vector2.zero;
-        Time.timeScale = 0f;
-
+        // switch animator to unscaled and trigger BEFORE freezing time to avoid transition issues
         anim.updateMode = AnimatorUpdateMode.UnscaledTime;
-        if (!string.IsNullOrEmpty(ultimateTrigger))
-            anim.SetTrigger(ultimateTrigger);
+        var trig = ResolveUltimateTrigger();
+        if (!string.IsNullOrEmpty(trig))
+            anim.SetTrigger(trig);
+        else
+            Debug.LogWarning("[ULTI] Animator trigger not found. Check Animator parameter name.");
+        Time.timeScale = 0f;
 
         // Fire global event
         //OnAnyUltimateStart?.Invoke(this);
@@ -314,12 +314,7 @@ public class Roman : MonoBehaviour
         if (ultimateDamagePoint != null)
             ultimateDamagePoint.gameObject.SetActive(true);
 
-        // NEW: warp immediately if option enabled
-        if (enableUltimateHitWarp && ultimateWarpOnActivate)
-        {
-            if (verboseUltimateLog) Debug.Log("[ULTI] Immediate warp on activate");
-            PerformUltimateWarp();
-        }
+        // Warp disabled
     }
 
     public void UltimateDamageEvent()
@@ -345,9 +340,10 @@ public class Roman : MonoBehaviour
             foreach (var e in enemies)
             {
                 var hp = e.GetComponent<HealthEnemy>();
+                if (hp == null) hp = e.GetComponentInParent<HealthEnemy>();
                 if (hp != null)
                 {
-                    hp.TakeDamage(ultimateDamage);
+                    hp.TakeDamageUltimate(ultimateDamage);
                     hitCount++;
                 }
             }
@@ -360,9 +356,10 @@ public class Roman : MonoBehaviour
             foreach (var e in enemies)
             {
                 var hp = e.GetComponent<HealthEnemy>();
+                if (hp == null) hp = e.GetComponentInParent<HealthEnemy>();
                 if (hp != null)
                 {
-                    hp.TakeDamage(ultimateDamage);
+                    hp.TakeDamageUltimate(ultimateDamage);
                     hitCount++;
                 }
             }
@@ -371,87 +368,13 @@ public class Roman : MonoBehaviour
     }
 
     // Animation Event: perform warp separately (call before damage event if needed)
-    public void UltimateWarpEvent()
-    {
-        if (!enableUltimateHitWarp) return;
-        if (ultimateHitWarpDone)
-        {
-            if (verboseUltimateLog) Debug.Log("[ULTI] UltimateWarpEvent skipped (already warped)");
-            return;
-        }
-        PerformUltimateWarp();
-    }
+    public void UltimateWarpEvent() { /* warp disabled */ }
 
-    private void PerformUltimateWarp()
-    {
-        ultimateHitWarpDone = true;
-        if (!enableUltimateHitWarp)
-            return;
-
-        Vector3 startPos = transform.position;
-        SpawnWarpEffect(ultimateWarpStartEffect, startPos + (Vector3)effectOffset, "start");
-
-        float direction = transform.localScale.x >= 0 ? 1f : -1f;
-        float halfWidthExtra = 0.0f;
-        if (ultimateWarpUseColliderBounds && boxCollider != null)
-            halfWidthExtra = boxCollider.bounds.extents.x;
-
-        Vector2 dir = new Vector2(direction, 0f);
-        float desiredDistance = ultimateHitWarpDistance;
-        float allowedDistance = desiredDistance; // will adjust by cast
-
-        if (ultimateWarpUseBoxCast && boxCollider != null)
-        {
-            // BoxCast using local collider size to detect obstacles
-            Vector2 castSize = boxCollider.size; // size in local space (BoxCast uses size, not bounds)
-            RaycastHit2D hit = Physics2D.BoxCast(startPos, castSize, 0f, dir, desiredDistance + halfWidthExtra, ultimateWarpBlockLayers);
-            if (hit.collider != null && hit.collider != boxCollider)
-            {
-                allowedDistance = hit.distance - ultimateWarpSkin;
-                if (allowedDistance < 0f) allowedDistance = 0f;
-                if (verboseUltimateLog) Debug.Log($"[ULTI] BoxCast blocked by {hit.collider.name} dist={hit.distance:F2} -> allow={allowedDistance:F2}");
-            }
-            else if (verboseUltimateLog)
-            {
-                Debug.Log($"[ULTI] BoxCast path clear dist={desiredDistance:F2}");
-            }
-        }
-        else
-        {
-            // fallback Raycast (original logic refined)
-            float maxDistance = desiredDistance + halfWidthExtra;
-            RaycastHit2D hit = Physics2D.Raycast(startPos, dir, maxDistance, ultimateWarpBlockLayers);
-            if (hit.collider != null)
-            {
-                allowedDistance = hit.distance - ultimateWarpSkin - halfWidthExtra;
-                if (allowedDistance < 0f) allowedDistance = 0f;
-                if (verboseUltimateLog) Debug.Log($"[ULTI] Raycast blocked by {hit.collider.name} -> allow={allowedDistance:F2}");
-            }
-            else if (verboseUltimateLog) Debug.Log($"[ULTI] Raycast free path dist={desiredDistance:F2}");
-        }
-
-        Vector3 target = startPos + new Vector3(direction * allowedDistance, 0f, 0f);
-
-        if (ultimateHitWarpUseTrail && tr != null)
-        {
-            bool prev = tr.emitting;
-            tr.emitting = true;
-            tr.Clear();
-            transform.position = target;
-            tr.emitting = prev;
-        }
-        else
-        {
-            transform.position = target;
-        }
-
-        SpawnWarpEffect(ultimateWarpEndEffect, target + (Vector3)effectOffset, "end");
-        if (verboseUltimateLog) Debug.Log($"[ULTI] Warp executed to {target} (allowedDist={allowedDistance:F2})");
-    }
+    private void PerformUltimateWarp() { /* warp disabled */ }
 
     private void SpawnWarpEffect(GameObject prefab, Vector3 position, string phase)
     {
-        if (prefab == null) return;
+        if (prefab == null) return; // effects optional; keep if assigned
         GameObject fx = Instantiate(prefab, position, Quaternion.identity);
         if (spawnEffectsInUnscaledTime)
         {
@@ -473,12 +396,23 @@ public class Roman : MonoBehaviour
         anim.updateMode = AnimatorUpdateMode.Normal;
         inUltimate = false;
 
+        // disable damage point if it was enabled
+        if (ultimateDamagePoint != null && ultimateDamagePoint.gameObject.activeSelf)
+            ultimateDamagePoint.gameObject.SetActive(false);
+
+        // clear typical params
         anim.ResetTrigger(ultimateTrigger);
         anim.SetBool("run", false);
         anim.SetBool("atk", false);
         anim.SetBool("crouch", false);
         anim.SetFloat("yVelocity", 0f);
-        anim.Play("idle-K", 0, 0f);
+
+        // resolve idle state and cross-fade to avoid hard snap failures
+        var idleState = ResolveIdleState();
+        if (!string.IsNullOrEmpty(idleState))
+            anim.CrossFadeInFixedTime(idleState, 0.05f, 0, 0f);
+        else
+            Debug.LogWarning("[ULTI] Idle state not found on Animator. Check state name or assign idleStateName.");
         if (logUltimateCooldown) Debug.Log("[ULTI] Finished and returned to idle");
 
         //OnAnyUltimateFinish?.Invoke(this);
@@ -559,37 +493,7 @@ public class Roman : MonoBehaviour
         }
     }
 
-    private void OnDrawGizmosSelected()
-    {
-        // base attack point (red)
-        if (AttackPoint != null)
-        {
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(AttackPoint.transform.position, radius);
-        }
-
-        // ultimate point center
-        Vector3 ultiCenter = (UltimateAttackPoint != null)
-            ? UltimateAttackPoint.position
-            : (AttackPoint != null ? AttackPoint.transform.position : transform.position);
-
-        if (ultimateUseBox)
-        {
-            Gizmos.color = Color.magenta;
-            Gizmos.DrawWireCube(ultiCenter, ultimateBoxSize);
-        }
-        else
-        {
-            Gizmos.color = Color.yellow;
-            Gizmos.DrawWireSphere(ultiCenter, radius * ultimateHitRadiusMultiplier);
-        }
-
-        if (CrouchAttackPoint != null)
-        {
-            Gizmos.color = Color.blue;
-            Gizmos.DrawWireSphere(CrouchAttackPoint.transform.position, crouchRadius);
-        }
-    }
+    // Gizmo drawing removed per request
 
     public void DebugAnimatorParameters()
     {
@@ -614,6 +518,87 @@ public class Roman : MonoBehaviour
         yield return null;
         if (verboseUltimateLog) Debug.Log($"[ULTI] Post-Yield State: runParam={anim.GetBool("run")}, yVel={body.velocity.y:F3}");
         StartUltimate();
+    }
+
+    private void TickUltimateCooldown(float dt)
+    {
+        if (ultimateReady) return;
+        ultimateTimer += Mathf.Max(0f, dt);
+        float remain = Mathf.Max(0f, ultimateCooldown - ultimateTimer);
+        if (logUltimateCooldown)
+        {
+            int sec = Mathf.CeilToInt(remain);
+            if (sec != ultimateLastLoggedSecond)
+            {
+                Debug.Log($"[ULTI] Cooldown remaining: {remain:F2}s");
+                ultimateLastLoggedSecond = sec;
+            }
+        }
+        if (ultimateTimer >= ultimateCooldown)
+        {
+            ultimateTimer = 0f;
+            ultimateReady = true;
+            ultimateLastLoggedSecond = -1;
+            if (logUltimateCooldown)
+                Debug.Log("[ULTI] Ready!");
+        }
+    }
+
+    // Helper: validate trigger exists; try common fallbacks
+    private string ResolveUltimateTrigger()
+    {
+        if (anim == null || anim.runtimeAnimatorController == null) return ultimateTrigger;
+        if (HasAnimatorParameter(ultimateTrigger, AnimatorControllerParameterType.Trigger)) return ultimateTrigger;
+        string[] fallbacks = { "ultimate", "Ultimate", "ULTIMATE", "ulti", "Ulti", "ULTI" };
+        foreach (var name in fallbacks)
+            if (HasAnimatorParameter(name, AnimatorControllerParameterType.Trigger)) return name;
+        return null;
+    }
+
+    private bool HasAnimatorParameter(string name, AnimatorControllerParameterType type)
+    {
+        foreach (var p in anim.parameters)
+            if (p.type == type && p.name == name) return true;
+        return false;
+    }
+
+    private string ResolveIdleState()
+    {
+        if (anim == null) return idleStateName;
+        if (HasAnimatorState(idleStateName)) return idleStateName;
+        string[] fallbacks = { "idle", "Idle", "IDLE", "idle-K", "Idle-K", "Roman-idle" };
+        foreach (var name in fallbacks)
+            if (HasAnimatorState(name)) return name;
+        return null;
+    }
+
+    private string ResolveCrouchState()
+    {
+        if (anim == null) return crouchStateName;
+        if (HasAnimatorState(crouchStateName)) return crouchStateName;
+        string[] fallbacks = { "crouch", "Crouch", "crouch-idle", "Crouch-Idle" };
+        foreach (var name in fallbacks)
+            if (HasAnimatorState(name)) return name;
+        return null;
+    }
+
+    private bool HasAnimatorState(string stateName)
+    {
+        int hash = Animator.StringToHash(stateName);
+        return anim.HasState(0, hash);
+    }
+
+    private void ForceEnterCrouch()
+    {
+        if (anim == null) return;
+        anim.SetBool("run", false);
+        anim.ResetTrigger("run"); // in case run is configured as trigger in some controllers
+        anim.SetBool("crouch", true);
+        // stop horizontal movement instantly
+        if (body != null) body.velocity = new Vector2(0f, body.velocity.y);
+        var cs = ResolveCrouchState();
+        if (!string.IsNullOrEmpty(cs))
+            anim.CrossFadeInFixedTime(cs, 0f, 0, 0f);
     }
 
     [Header("Movement Lock (Normal Attack)")]

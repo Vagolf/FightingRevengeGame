@@ -48,11 +48,5 @@ public class KaisaAttack : AttackBase
             anim.SetTrigger("attack");
     }
 
-    private void OnDrawGizmosSelected()
-    {
-        if (attackPoint == null)
-            return;
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(attackPoint.position, attackRange);
-    }
+    // Gizmo drawing removed per request
 }

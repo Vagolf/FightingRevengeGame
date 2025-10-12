@@ -24,6 +24,11 @@ public class EnemyAI : MonoBehaviour
     [SerializeField] private float attackCooldown = 1.0f;
     private float attackTimer = 0f;
 
+    [Header("Crouch Attack")]
+    [SerializeField] private Transform crouchAttackPoint;
+    [SerializeField] private float crouchAttackRadius = 1.4f;
+    [SerializeField] private float crouchDamage = 80f;
+
     private Rigidbody2D rb;
     private Animator anim;
     private bool combatStarted;
@@ -88,6 +93,12 @@ public class EnemyAI : MonoBehaviour
                 combatStarted = true;
             }
         }
+        else if (dist < stopDistance)
+        {
+            // Too close, step back a little to keep spacing
+            rb.velocity = new Vector2(-dir * moveSpeed, rb.velocity.y);
+            SetRun(true);
+        }
         else
         {
             // ?????????/????
@@ -118,10 +129,30 @@ public class EnemyAI : MonoBehaviour
             anim.SetBool("run", false);
             anim.SetBool("atk", true);
         }
-        var hits = Physics2D.OverlapCircleAll(attackPoint.position, attackRadius, playerLayer);
-        foreach (var h in hits)
+        // Decide attack type: crouch attack if player is crouching and within crouch range; otherwise normal
+        if (player != null)
         {
-            h.GetComponent<HealthCh>()?.TakeDamage(damage);
+            var playerComp = player.GetComponent<Player>();
+            bool targetCrouching = playerComp != null && playerComp.isCrouching;
+            if (targetCrouching && crouchAttackPoint != null)
+            {
+                float dc = Vector2.Distance(crouchAttackPoint.position, player.position);
+                if (dc <= crouchAttackRadius)
+                {
+                    if (anim) anim.SetBool("crouch", true);
+                    var hp = player.GetComponent<HealthCh>();
+                    if (hp != null) hp.TakeDamage(crouchDamage);
+                }
+            }
+            else
+            {
+                float d = Vector2.Distance(attackPoint.position, player.position);
+                if (d <= attackRadius)
+                {
+                    var hp = player.GetComponent<HealthCh>();
+                    if (hp != null) hp.TakeDamage(damage);
+                }
+            }
         }
         attackTimer = attackCooldown;
         // ???????? atk ????????????????? (?????????????????????????????????)
@@ -130,7 +161,11 @@ public class EnemyAI : MonoBehaviour
 
     private void ClearAttackFlag()
     {
-        if (anim != null) anim.SetBool("atk", false);
+        if (anim != null)
+        {
+            anim.SetBool("atk", false);
+            anim.SetBool("crouch", false);
+        }
     }
 
     private void SetRun(bool run)
@@ -138,14 +173,5 @@ public class EnemyAI : MonoBehaviour
         if (anim != null) anim.SetBool("run", run);
     }
 
-    private void OnDrawGizmosSelected()
-    {
-        Gizmos.color = new Color(1f, 0.6f, 0f, 0.8f);
-        Gizmos.DrawWireSphere(transform.position, detectRange);
-        Gizmos.color = Color.red;
-        if (attackPoint != null)
-            Gizmos.DrawWireSphere(attackPoint.position, attackRadius);
-        else
-            Gizmos.DrawWireSphere(transform.position, attackRadius);
-    }
+    // Gizmo drawing removed per request
 }

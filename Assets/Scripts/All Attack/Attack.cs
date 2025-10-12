@@ -85,15 +85,7 @@ public class Attack : MonoBehaviour
         }
     }
 
-    // Visualize attack range in editor
-    private void OnDrawGizmosSelected()
-    {
-        if (attackPoint != null)
-        {
-            Gizmos.color = Color.yellow;
-            Gizmos.DrawWireSphere(attackPoint.position, attackRange);
-        }
-    }
+    // Gizmo drawing removed per request
     private void Deactivte()
     {
         gameObject.SetActive(false);

@@ -12,11 +12,8 @@ public class HealthEnemy : MonoBehaviour
     public float currentHealth { get; private set; }
     private Animator anim;
 
-    [Header("iFrames")]
-    [SerializeField] private float iFramesDuration = 0.5f;
-    [SerializeField] private int numberOfFlashes = 3;
+    // iFrames removed
     private SpriteRenderer spriteRend;
-    private bool isInvulnerable = false;
 
     [Header("PopUpDamage")]
     public GameObject popUpDamagePrefab;
@@ -50,27 +47,45 @@ public class HealthEnemy : MonoBehaviour
         {
             anim.SetTrigger("die");
             isDead = true;
+            // Disable AI / controllers on death
+            var enemyAI = GetComponent<EnemyAI>();
+            if (enemyAI != null) enemyAI.enabled = false;
+            var romanAI = GetComponent<RomanAI>();
+            if (romanAI != null) romanAI.enabled = false;
+            var enemyCtrl = GetComponent<Enemy>();
+            if (enemyCtrl != null) enemyCtrl.enabled = false;
+            var rb = GetComponent<Rigidbody2D>();
+            if (rb != null) rb.velocity = Vector2.zero;
         }
     }
 
     public void TakeDamage(float damage)
     {
-        if (!isInvulnerable && !isDead)
-        {
-            currentHealth = Mathf.Clamp(currentHealth - damage, 0, startingHealth);
-            healthBar.SetHealth(currentHealth);
-            SpawnPopup(damage);
+        if (isDead) return;
 
-            if (currentHealth <= 0 && !isDead)
-            {
-                anim.SetTrigger("die");
-                isDead = true;
-            }
-            else
-            {
-                anim.SetTrigger("hurt");
-                StartCoroutine(Invulnerability());
-            }
+        // iFrames removed: always take damage when not dead
+        currentHealth = Mathf.Clamp(currentHealth - damage, 0, startingHealth);
+        healthBar.SetHealth(currentHealth);
+        SpawnPopup(damage);
+
+        if (currentHealth <= 0 && !isDead)
+        {
+            anim.SetTrigger("die");
+            isDead = true;
+            // Disable AI / controllers on death
+            var enemyAI = GetComponent<EnemyAI>();
+            if (enemyAI != null) enemyAI.enabled = false;
+            var romanAI = GetComponent<RomanAI>();
+            if (romanAI != null) romanAI.enabled = false;
+            var enemyCtrl = GetComponent<Enemy>();
+            if (enemyCtrl != null) enemyCtrl.enabled = false;
+            var rb = GetComponent<Rigidbody2D>();
+            if (rb != null) rb.velocity = Vector2.zero;
+        }
+        else
+        {
+            anim.SetTrigger("hurt");
+            // iFrames disabled: no flashing / invulnerability coroutine
         }
     }
 
@@ -106,24 +121,12 @@ public class HealthEnemy : MonoBehaviour
         }
     }
 
-    private IEnumerator Invulnerability()
-    {
-        isInvulnerable = true;
-        for (int i = 0; i < numberOfFlashes; i++)
-        {
-            spriteRend.color = new Color(1, 0, 0, 0.5f);
-            yield return new WaitForSeconds(iFramesDuration / (numberOfFlashes * 2));
-            spriteRend.color = Color.white;
-            yield return new WaitForSeconds(iFramesDuration / (numberOfFlashes * 2));
-        }
-        isInvulnerable = false;
-    }
+    // iFrames coroutine removed
 
     // Revive and restore to full for a new round
     public void ResetForNewRound()
     {
         StopAllCoroutines();
-        isInvulnerable = false;
         isDead = false;
         gameObject.SetActive(true);
         currentHealth = startingHealth;
@@ -143,8 +146,13 @@ public class HealthEnemy : MonoBehaviour
             anim.ResetTrigger("hurt");
             anim.Update(0f);
         }
+        // Re-enable whichever controller this enemy uses
         var enemyCtrl = GetComponent<Enemy>();
         if (enemyCtrl != null) enemyCtrl.enabled = true;
+        var enemyAI = GetComponent<EnemyAI>();
+        if (enemyAI != null) enemyAI.enabled = true;
+        var romanAI = GetComponent<RomanAI>();
+        if (romanAI != null) romanAI.enabled = true;
         var rb = GetComponent<Rigidbody2D>();
         if (rb != null) rb.velocity = Vector2.zero;
     }

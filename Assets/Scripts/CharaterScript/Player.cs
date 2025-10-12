@@ -126,6 +126,9 @@ public class Player : MonoBehaviour
 
     private void Update()
     {
+        // Always tick ultimate cooldown even during gate
+        if (!ultimateReady)
+            TickUltimateCooldown(Time.deltaTime);
         // Block all player logic while global gate is active (e.g., countdown running)
         if (Timer.GateBlocked)
         {
@@ -241,29 +244,7 @@ public class Player : MonoBehaviour
         anim.SetBool("crouch", isCrouching);
         anim.SetFloat("yVelocity", body.velocity.y);
 
-        // Ultimate Cooldown
-        if (!ultimateReady)
-        {
-            ultimateTimer += Time.deltaTime;
-            float remain = Mathf.Max(0f, ultimateCooldown - ultimateTimer);
-            if (logUltimateCooldown)
-            {
-                int sec = Mathf.CeilToInt(remain);
-                if (sec != ultimateLastLoggedSecond)
-                {
-                    Debug.Log($"[ULTI] Cooldown remaining: {remain:F2}s");
-                    ultimateLastLoggedSecond = sec;
-                }
-            }
-            if (ultimateTimer >= ultimateCooldown)
-            {
-                ultimateTimer = 0f;
-                ultimateReady = true;
-                ultimateLastLoggedSecond = -1;
-                if (logUltimateCooldown)
-                    Debug.Log("[ULTI] Ready!");
-            }
-        }
+        // cooldown already processed above
 
         // Block all player control while movement is locked by normal attack
         if (movementLocked)
@@ -333,9 +314,10 @@ public class Player : MonoBehaviour
             foreach (var e in enemies)
             {
                 var hp = e.GetComponent<HealthEnemy>();
+                if (hp == null) hp = e.GetComponentInParent<HealthEnemy>();
                 if (hp != null)
                 {
-                    hp.TakeDamage(ultimateDamage);
+                    hp.TakeDamageUltimate(ultimateDamage);
                     hitCount++;
                 }
             }
@@ -348,9 +330,10 @@ public class Player : MonoBehaviour
             foreach (var e in enemies)
             {
                 var hp = e.GetComponent<HealthEnemy>();
+                if (hp == null) hp = e.GetComponentInParent<HealthEnemy>();
                 if (hp != null)
                 {
-                    hp.TakeDamage(ultimateDamage);
+                    hp.TakeDamageUltimate(ultimateDamage);
                     hitCount++;
                 }
             }
@@ -622,6 +605,29 @@ public class Player : MonoBehaviour
     {
         movementLocked = false;
         if (logMovementLock) Debug.Log("[ATK] Movement unlocked");
+    }
+
+    private void TickUltimateCooldown(float dt)
+    {
+        ultimateTimer += Mathf.Max(0f, dt);
+        float remain = Mathf.Max(0f, ultimateCooldown - ultimateTimer);
+        if (logUltimateCooldown)
+        {
+            int sec = Mathf.CeilToInt(remain);
+            if (sec != ultimateLastLoggedSecond)
+            {
+                Debug.Log($"[ULTI] Cooldown remaining: {remain:F2}s");
+                ultimateLastLoggedSecond = sec;
+            }
+        }
+        if (ultimateTimer >= ultimateCooldown)
+        {
+            ultimateTimer = 0f;
+            ultimateReady = true;
+            ultimateLastLoggedSecond = -1;
+            if (logUltimateCooldown)
+                Debug.Log("[ULTI] Ready!");
+        }
     }
     
 

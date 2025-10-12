@@ -22,6 +22,18 @@ public class HealthCh : MonoBehaviour
     [Header("GameManager")]
     [SerializeField] private GameManagerScript gameManager; // Reference to the GameManager script
 
+    [Header("Crouch Guard")]
+    [Tooltip("Block damage while crouching up to N times, with recharge cooldown per charge")]
+    [SerializeField] private bool enableCrouchGuard = true;
+    [SerializeField] private int maxCrouchBlocks = 3;
+    [SerializeField] private float crouchGuardCooldown = 5f;
+    private int availableCrouchBlocks;
+    private float crouchRechargeTimer;
+
+    // Events to notify listeners about crouch guard changes
+    public event System.Action<int, int> OnCrouchBlockUsed;      // (available, max)
+    public event System.Action<int, int> OnCrouchBlockRestored; // (available, max)
+
     private void Start()
     {
         isDead = false;
@@ -29,7 +41,11 @@ public class HealthCh : MonoBehaviour
         healthBar.setMaxHealth(startingHealth);
         healthBar.SetHealth(currentHealth);
         anim = GetComponent<Animator>();
-        spriteRend = GetComponent<SpriteRenderer>();    
+        spriteRend = GetComponent<SpriteRenderer>();
+
+        // init crouch guard
+        availableCrouchBlocks = maxCrouchBlocks;
+        crouchRechargeTimer = 0f;
     }
 
     private void Update()
@@ -37,6 +53,18 @@ public class HealthCh : MonoBehaviour
         // For test damage
         if (Input.GetKeyDown(KeyCode.E))
             TakeDamage(200);
+
+        // Recharge crouch guard one charge every cooldown interval when not full
+        if (enableCrouchGuard && availableCrouchBlocks < maxCrouchBlocks)
+        {
+            crouchRechargeTimer += Time.deltaTime;
+            if (crouchRechargeTimer >= crouchGuardCooldown)
+            {
+                crouchRechargeTimer -= crouchGuardCooldown;
+                availableCrouchBlocks = Mathf.Min(maxCrouchBlocks, availableCrouchBlocks + 1);
+                OnCrouchBlockRestored?.Invoke(availableCrouchBlocks, maxCrouchBlocks);
+            }
+        }
     }
 
     public void SetHealth(float healthChange)
@@ -48,7 +76,10 @@ public class HealthCh : MonoBehaviour
         if (currentHealth <= 0 && !isDead)
         {
             anim.SetTrigger("die");
-            GetComponent<Player>().enabled = false;
+            var p = GetComponent<Player>();
+            if (p != null) p.enabled = false;
+            var r = GetComponent<Roman>();
+            if (r != null) r.enabled = false;
             isDead = true;
         }
     }
@@ -56,6 +87,21 @@ public class HealthCh : MonoBehaviour
     public void TakeDamage(float _damage)
     {
         if (isDead) return;
+
+        // crouch guard: block damage when crouching or on crouch input
+        if (enableCrouchGuard && CanBlockViaCrouch())
+        {
+            if (availableCrouchBlocks > 0)
+            {
+                availableCrouchBlocks--;
+                // reset recharge timer to start recharging this spent charge
+                if (availableCrouchBlocks < maxCrouchBlocks)
+                    crouchRechargeTimer = 0f;
+                // optionally flash/block feedback here
+                OnCrouchBlockUsed?.Invoke(availableCrouchBlocks, maxCrouchBlocks);
+                return; // ignore this damage entirely
+            }
+        }
 
         currentHealth = Mathf.Clamp(currentHealth - _damage, 0, startingHealth);
         healthBar.SetHealth(currentHealth);
@@ -70,6 +116,19 @@ public class HealthCh : MonoBehaviour
             if (!isHurting)
                 StartCoroutine(HurtRoutine());
         }
+    }
+
+    private bool CanBlockViaCrouch()
+    {
+        // check crouch state either from Animator or character scripts
+        bool crouchState = anim != null && anim.GetBool("crouch");
+        var roman = GetComponent<Roman>();
+        if (roman != null) crouchState = crouchState || roman.isCrouching;
+        var player = GetComponent<Player>();
+        if (player != null) crouchState = crouchState || player.isCrouching;
+        // also allow immediate press S to block
+        bool crouchKey = Input.GetKey(KeyCode.S);
+        return (crouchState || crouchKey);
     }
 
     private IEnumerator HurtRoutine()
@@ -108,7 +167,14 @@ public class HealthCh : MonoBehaviour
         }
         var player = GetComponent<Player>();
         if (player != null) player.enabled = true;
+        var roman = GetComponent<Roman>();
+        if (roman != null) roman.enabled = true;
         var rb = GetComponent<Rigidbody2D>();
         if (rb != null) rb.velocity = Vector2.zero;
+
+        // reset crouch guard charges
+        availableCrouchBlocks = maxCrouchBlocks;
+        crouchRechargeTimer = 0f;
     }
 }
+

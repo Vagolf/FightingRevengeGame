@@ -575,12 +575,7 @@ namespace TMPro.Examples
         // Draw Rectangles
         void DrawRectangle(Vector3 BL, Vector3 TR, Color color)
         {
-            Gizmos.color = color;
-
-            Gizmos.DrawLine(new Vector3(BL.x, BL.y, 0), new Vector3(BL.x, TR.y, 0));
-            Gizmos.DrawLine(new Vector3(BL.x, TR.y, 0), new Vector3(TR.x, TR.y, 0));
-            Gizmos.DrawLine(new Vector3(TR.x, TR.y, 0), new Vector3(TR.x, BL.y, 0));
-            Gizmos.DrawLine(new Vector3(TR.x, BL.y, 0), new Vector3(BL.x, BL.y, 0));
+            // Removed Gizmos.DrawLine calls per request. Intentionally left blank.
         }
 
         void DrawDottedRectangle(Vector3 bottomLeft, Vector3 topRight, Color color, float size = 5.0f)
@@ -625,12 +620,7 @@ namespace TMPro.Examples
         // Draw Rectangles
         void DrawRectangle(Vector3 bl, Vector3 tl, Vector3 tr, Vector3 br, Color color)
         {
-            Gizmos.color = color;
-
-            Gizmos.DrawLine(bl, tl);
-            Gizmos.DrawLine(tl, tr);
-            Gizmos.DrawLine(tr, br);
-            Gizmos.DrawLine(br, bl);
+            // Removed Gizmos.DrawLine calls per request. Intentionally left blank.
         }
 
 

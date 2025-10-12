@@ -22,19 +22,19 @@ AnimationClip:
     curve:
     - time: 0
       value: {fileID: 21300000, guid: 74b7d7865e13b964ab441626542f8742, type: 3}
-    - time: 0.25
-      value: {fileID: 21300000, guid: 0879030934917814ea41a5370019f5fa, type: 3}
-    - time: 0.33333334
-      value: {fileID: 21300000, guid: bcd2da9bac0ba6b4abdd64032c9d7e65, type: 3}
-    - time: 0.41666666
-      value: {fileID: 21300000, guid: af8d9f3066d77ec47ae08bbe12131f44, type: 3}
     - time: 0.5
-      value: {fileID: 21300000, guid: 06a24751a9430b5429ec58a5875454a9, type: 3}
+      value: {fileID: 21300000, guid: 0879030934917814ea41a5370019f5fa, type: 3}
     - time: 0.5833333
-      value: {fileID: 21300000, guid: ef4531f2b3863594cbefb7aad09c7c47, type: 3}
+      value: {fileID: 21300000, guid: bcd2da9bac0ba6b4abdd64032c9d7e65, type: 3}
     - time: 0.6666667
+      value: {fileID: 21300000, guid: af8d9f3066d77ec47ae08bbe12131f44, type: 3}
+    - time: 0.75
+      value: {fileID: 21300000, guid: 06a24751a9430b5429ec58a5875454a9, type: 3}
+    - time: 0.8333333
+      value: {fileID: 21300000, guid: ef4531f2b3863594cbefb7aad09c7c47, type: 3}
+    - time: 0.9166667
       value: {fileID: 21300000, guid: f56cbd93f41d9ae4f88c95b392ae9017, type: 3}
-    - time: 1
+    - time: 1.3333334
       value: {fileID: 21300000, guid: f56cbd93f41d9ae4f88c95b392ae9017, type: 3}
     attribute: m_Sprite
     path: 
@@ -71,7 +71,7 @@ AnimationClip:
     m_AdditiveReferencePoseClip: {fileID: 0}
     m_AdditiveReferencePoseTime: 0
     m_StartTime: 0
-    m_StopTime: 1.0166667
+    m_StopTime: 1.35
     m_OrientationOffsetY: 0
     m_Level: 0
     m_CycleOffset: 0
@@ -105,21 +105,21 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 0.41666666
+  - time: 0.6666667
     functionName: CrouchAttack
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 1
+  - time: 1.3333334
     functionName: NormalAttackUnlockMovement
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 1
+  - time: 1.3333334
     functionName: OnAttackEnd
     data: 
     objectReferenceParameter: {fileID: 0}
