@@ -34,6 +34,12 @@ public class RomanAI : MonoBehaviour
     private bool canDash = true;
     private bool isDashing;
 
+    [Header("Dash Collision")] 
+    [Tooltip("Layers that block dash movement (e.g., Walls, Ground Bounds)")]
+    [SerializeField] private LayerMask dashBlockLayers;
+    [SerializeField] private float dashSkin = 0.05f;
+    [SerializeField] private bool dashUseBoxCast = true;
+
     private Rigidbody2D body;
     private BoxCollider2D boxCollider;
     private Animator anim;
@@ -50,8 +56,13 @@ public class RomanAI : MonoBehaviour
     [Header("Damage Values")] public float damage = 100f; // legacy default
     public float normalAttackDamage = 70f;
     public float crouchAttackDamage = 180f;
-    [SerializeField] private float attackCooldown = 0.8f;
-    private float attackTimer = 0f;
+    [Header("Attack Cooldowns")]
+    [SerializeField] private float normalAttackCooldown = 2.0f;
+    [SerializeField] private float crouchAttackCooldown = 6.0f;
+    private float normalAttackTimer = 0f;
+    private float crouchAttackTimer = 0f;
+    [Tooltip("If true, AI can use crouch attack on proximity even if the target is not crouching.")]
+    [SerializeField] private bool useCrouchOnProximity = true;
     private bool attack;
 
     [Header("Ultimate Skill")]
@@ -88,6 +99,9 @@ public class RomanAI : MonoBehaviour
 
     [Header("Debug")] 
     [SerializeField] private bool verboseLog = false;
+    [Header("Animator States")]
+    [Tooltip("Animator state name to play when returning to idle after actions (e.g., 'idle' or 'idle-K')")]
+    [SerializeField] private string idleState = "Roman-idle";
 
     private void Awake()
     {
@@ -119,11 +133,21 @@ public class RomanAI : MonoBehaviour
         }
     }
 
+    private void OnValidate()
+    {
+        // Ensure cooldowns and radii are never zero/negative due to inspector values
+        if (normalAttackCooldown < 0.1f) normalAttackCooldown = 0.1f;
+        if (crouchAttackCooldown < 0.1f) crouchAttackCooldown = 0.1f;
+        if (radius <= 0f) radius = 0.1f;
+        if (crouchRadius <= 0f) crouchRadius = 0.1f;
+    }
+
     private void Update()
     {
         // cooldowns
         TickUltimateCooldown(Time.deltaTime);
-        if (attackTimer > 0f) attackTimer -= Time.deltaTime;
+        if (normalAttackTimer > 0f) normalAttackTimer -= Time.deltaTime;
+        if (crouchAttackTimer > 0f) crouchAttackTimer -= Time.deltaTime;
 
         if (Timer.GateBlocked)
         {
@@ -138,6 +162,8 @@ public class RomanAI : MonoBehaviour
         }
 
         IsGrounded();
+
+        // no safety timeout; rely on animation events for timing
 
         if (preparingUltimate) { SetRun(false); return; }
         if (inUltimate) { return; }
@@ -180,10 +206,51 @@ public class RomanAI : MonoBehaviour
         }
         else
         {
-            // in range -> stop and attack
-            body.velocity = new Vector2(0f, body.velocity.y);
-            SetRun(false);
-            TryAttack();
+            // compute in-range flags for normal & crouch
+            bool inNormalRange;
+            if (AttackPoint != null)
+                inNormalRange = Vector2.Distance(AttackPoint.transform.position, target.position) <= radius;
+            else
+                inNormalRange = Vector2.Distance(transform.position, target.position) <= attackRange;
+            bool inCrouchRange;
+            if (CrouchAttackPoint != null)
+                inCrouchRange = Vector2.Distance(CrouchAttackPoint.transform.position, target.position) <= crouchRadius;
+            else
+                inCrouchRange = Vector2.Distance(transform.position, target.position) <= attackRange;
+
+            // prefer crouch attack if target is crouching and we are in range & off cooldown
+            var playerComp = target.GetComponent<Player>();
+            bool targetCrouching = playerComp != null && playerComp.isCrouching;
+            bool started = TryAttack(inNormalRange, inCrouchRange, targetCrouching);
+
+            // If we couldn't attack (cooldowns or out of sub-range), keep spacing so AI doesn't stand still forever
+            if (!started)
+            {
+                float distNow = Vector2.Distance(attackPos, target.position);
+                // If too close, step back; otherwise keep approaching even while on cooldown
+                if (distNow < stopDistance)
+                    body.velocity = new Vector2(-dir * speed, body.velocity.y);
+                else
+                    body.velocity = new Vector2(dir * speed, body.velocity.y);
+                SetRun(true);
+            }
+            else
+            {
+                // We are going to attack now, stop to play animation cleanly
+                body.velocity = new Vector2(0f, body.velocity.y);
+                SetRun(false);
+            }
+
+            // If not attacking and not explicitly set run false, ensure movement carries on
+            if (!attack && !movementLocked)
+            {
+                float distBand = Vector2.Distance(attackPos, target.position);
+                if (distBand > attackRange)
+                    body.velocity = new Vector2(dir * speed, body.velocity.y);
+                else if (distBand < stopDistance)
+                    body.velocity = new Vector2(-dir * speed, body.velocity.y);
+                SetRun(true);
+            }
         }
 
         // animator params
@@ -191,29 +258,102 @@ public class RomanAI : MonoBehaviour
         anim.SetFloat("yVelocity", body.velocity.y);
     }
 
-    private void TryAttack()
+    private bool TryAttack(bool inNormalRange, bool inCrouchRange, bool targetCrouching)
     {
-        if (attackTimer > 0f) return;
-        // trigger animation like player
-        if (anim)
+        // Try crouch attack first if appropriate
+        if (((targetCrouching) || (useCrouchOnProximity)) && inCrouchRange && crouchAttackTimer <= 0f)
+        {
+            StartAttackAnimation(isCrouch:true);
+            crouchAttackTimer = crouchAttackCooldown;
+            attack = true;
+            // rely on animation events to apply damage and end attack
+            return true;
+        }
+
+        // Fallback to normal attack
+        if (inNormalRange && normalAttackTimer <= 0f)
+        {
+            StartAttackAnimation(isCrouch:false);
+            normalAttackTimer = normalAttackCooldown;
+            attack = true;
+            // rely on animation events to apply damage and end attack
+            return true;
+        }
+        return false;
+    }
+
+    // Start attack animation similar to Player: set run false, set crouch if needed, then set atk bool (or trigger if only trigger exists)
+    private void StartAttackAnimation(bool isCrouch)
+    {
+        if (anim == null) return;
+        // ensure run is off
+        anim.SetBool("run", false);
+        if (isCrouch) anim.SetBool("crouch", true);
+
+        bool setBool = HasAnimatorParameter("atk", AnimatorControllerParameterType.Bool);
+        bool hasAtkTrigger = HasAnimatorParameter("atk", AnimatorControllerParameterType.Trigger);
+        bool hasAttackTrigger = HasAnimatorParameter("attack", AnimatorControllerParameterType.Trigger);
+        if (setBool)
         {
             anim.SetBool("atk", true);
         }
-        // Attack damage is usually applied via Animation Event calling Attack().
-        // As a fallback, also call immediately if no event is set.
-        Attack();
-        attackTimer = attackCooldown;
-        if (isActiveAndEnabled) Invoke(nameof(ClearAttackFlag), 0.1f);
+        else if (hasAtkTrigger)
+        {
+            anim.SetTrigger("atk");
+        }
+        else if (hasAttackTrigger)
+        {
+            anim.SetTrigger("attack");
+        }
+        if (verboseLog) Debug.Log($"[AI ATK] StartAttackAnimation {(isCrouch ? "[CROUCH]" : "[NORMAL]")}: setBool={setBool}, atkTrig={hasAtkTrigger}, attackTrig={hasAttackTrigger}");
+    }
+
+    private bool HasAnimatorParameter(string name, AnimatorControllerParameterType type)
+    {
+        if (anim == null) return false;
+        foreach (var p in anim.parameters)
+            if (p.type == type && p.name == name) return true;
+        return false;
+    }
+
+    private bool HasAnimatorState(string stateName)
+    {
+        if (anim == null || string.IsNullOrEmpty(stateName)) return false;
+        int hash = Animator.StringToHash(stateName);
+        return anim.HasState(0, hash);
     }
 
     private void ClearAttackFlag()
     {
-        if (anim != null) anim.SetBool("atk", false);
+        if (anim != null)
+        {
+            anim.SetBool("atk", false);
+            anim.SetBool("crouch", false);
+            Debug.Log($"[AI ATK] ClearAttackFlag. anim.atk={anim.GetBool("atk")}, crouch={anim.GetBool("crouch")}");
+        }
+        attack = false;
+        // Resume chasing if not in attack wind-up
+        if (target != null)
+        {
+            Vector3 attackPos = AttackPoint != null ? AttackPoint.transform.position : transform.position;
+            float dist = Vector2.Distance(attackPos, target.position);
+            float dir = Mathf.Sign(target.position.x - transform.position.x);
+            if (dist > attackRange)
+                body.velocity = new Vector2(dir * speed, body.velocity.y);
+            else if (dist < stopDistance)
+                body.velocity = new Vector2(-dir * speed, body.velocity.y);
+            else
+                body.velocity = new Vector2(dir * 0.2f * speed, body.velocity.y); // micro adjust while in band
+            SetRun(true);
+        }
     }
 
     private void SetRun(bool r)
     {
-        if (anim != null) anim.SetBool("run", r);
+        if (anim == null) return;
+        // Support both 'run' and 'Run' parameter names
+        if (HasAnimatorParameter("run", AnimatorControllerParameterType.Bool)) anim.SetBool("run", r);
+        if (HasAnimatorParameter("Run", AnimatorControllerParameterType.Bool)) anim.SetBool("Run", r);
     }
 
     private void Jump()
@@ -240,7 +380,26 @@ public class RomanAI : MonoBehaviour
         isDashing = true;
         float originalGravity = body.gravityScale;
         body.gravityScale = 0f;
-        body.velocity = new Vector2(transform.localScale.x * dashingPower, 0f);
+        // compute allowed dash distance using casts to avoid passing through walls
+        Vector3 startPos = transform.position;
+        float dir = transform.localScale.x >= 0 ? 1f : -1f;
+        float desiredDistance = Mathf.Abs(dashingPower) * dashnigTime; // approx distance = speed * time
+        float allowedDistance = desiredDistance;
+        if (dashUseBoxCast && boxCollider != null)
+        {
+            Vector2 castSize = boxCollider.size;
+            RaycastHit2D hit = Physics2D.BoxCast(startPos, castSize, 0f, new Vector2(dir, 0f), desiredDistance, dashBlockLayers);
+            if (hit.collider != null)
+            {
+                allowedDistance = Mathf.Max(0f, hit.distance - dashSkin);
+                if (verboseLog) Debug.Log($"[AI DASH] Blocked by {hit.collider.name} -> allow = {allowedDistance:F2}/{desiredDistance:F2}");
+            }
+        }
+        // stop current velocity and warp within allowed distance to avoid tunneling
+        body.velocity = Vector2.zero;
+        Vector3 target = startPos + new Vector3(dir * allowedDistance, 0f, 0f);
+        if (tr) tr.emitting = true;
+        transform.position = target;
         if (tr) tr.emitting = true;
         yield return new WaitForSeconds(dashnigTime);
         if (tr) tr.emitting = false;
@@ -255,26 +414,28 @@ public class RomanAI : MonoBehaviour
     {
         if (AttackPoint == null) return;
         float usedDamage = normalAttackDamage;
-        Collider2D[] hits = Physics2D.OverlapCircleAll(AttackPoint.transform.position, radius, Opponent);
+        var pos = AttackPoint.transform.position;
+        Collider2D[] hits = Physics2D.OverlapCircleAll(pos, radius, Opponent);
         foreach (var h in hits)
         {
             var hpEnemy = h.GetComponent<HealthEnemy>();
-            if (hpEnemy != null) { hpEnemy.TakeDamage(usedDamage); continue; }
+            if (hpEnemy != null) { hpEnemy.TakeDamage(usedDamage); Debug.Log($"[AI ATK] Normal dealt {usedDamage} to {hpEnemy.name} at {pos}"); continue; }
             var hpPlayer = h.GetComponent<HealthCh>();
-            if (hpPlayer != null) { hpPlayer.TakeDamage(usedDamage); }
+            if (hpPlayer != null) { hpPlayer.TakeDamage(usedDamage); Debug.Log($"[AI ATK] Normal dealt {usedDamage} to Player {hpPlayer.name} at {pos}"); }
         }
     }
 
     public void CrouchAttack()
     {
         if (CrouchAttackPoint == null) return;
-        Collider2D[] hits = Physics2D.OverlapCircleAll(CrouchAttackPoint.transform.position, crouchRadius, Opponent);
+        var pos = CrouchAttackPoint.transform.position;
+        Collider2D[] hits = Physics2D.OverlapCircleAll(pos, crouchRadius, Opponent);
         foreach (var h in hits)
         {
             var hpEnemy = h.GetComponent<HealthEnemy>();
-            if (hpEnemy != null) { hpEnemy.TakeDamage(crouchAttackDamage); continue; }
+            if (hpEnemy != null) { hpEnemy.TakeDamage(crouchAttackDamage); Debug.Log($"[AI ATK] Crouch dealt {crouchAttackDamage} to {hpEnemy.name} at {pos}"); continue; }
             var hpPlayer = h.GetComponent<HealthCh>();
-            if (hpPlayer != null) { hpPlayer.TakeDamage(crouchAttackDamage); }
+            if (hpPlayer != null) { hpPlayer.TakeDamage(crouchAttackDamage); Debug.Log($"[AI ATK] Crouch dealt {crouchAttackDamage} to Player {hpPlayer.name} at {pos}"); }
         }
     }
 
@@ -288,6 +449,21 @@ public class RomanAI : MonoBehaviour
     public void OnAttackEnd()
     {
         StopAttackAnimation();
+        // Safety: force unlock in case animation event NormalAttackUnlockMovement is missing
+        movementLocked = false;
+        if (verboseLog) Debug.Log("[AI ATK] OnAttackEnd -> force unlock movement");
+        // Begin appropriate cooldown after the animation completes
+        // Use crouch cooldown if we were crouching during this attack, otherwise normal
+        if (anim != null && anim.GetBool("crouch"))
+        {
+            if (crouchAttackTimer < crouchAttackCooldown)
+                crouchAttackTimer = crouchAttackCooldown;
+        }
+        else
+        {
+            if (normalAttackTimer < normalAttackCooldown)
+                normalAttackTimer = normalAttackCooldown;
+        }
     }
 
     public void StopAttackAnimation()
@@ -394,6 +570,9 @@ public class RomanAI : MonoBehaviour
         anim.SetBool("crouch", false);
         anim.SetFloat("yVelocity", 0f);
 
+        // Force transition back to idle to avoid sticking on the last frame
+        PlayIdleState();
+
         UltimateEventBus.RaiseFinish(transform);
     }
 
@@ -419,5 +598,23 @@ public class RomanAI : MonoBehaviour
             if (logUltimateCooldown)
                 Debug.Log("[AI ULTI] Ready!");
         }
+    }
+
+    private void PlayIdleState()
+    {
+        if (anim == null) return;
+        string[] candidates = new string[] { idleState, "idle", "Idle", "Roman-idle", "idle-K" };
+        foreach (var s in candidates)
+        {
+            if (string.IsNullOrEmpty(s)) continue;
+            int hash = Animator.StringToHash(s);
+            if (anim.HasState(0, hash))
+            {
+                anim.Play(hash, 0, 0f);
+                if (verboseLog) Debug.Log($"[AI ULTI] PlayIdleState -> {s}");
+                return;
+            }
+        }
+        if (verboseLog) Debug.Log("[AI ULTI] PlayIdleState -> no matching idle state found");
     }
 }

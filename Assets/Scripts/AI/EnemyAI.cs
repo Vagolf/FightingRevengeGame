@@ -101,9 +101,7 @@ public class EnemyAI : MonoBehaviour
         }
         else
         {
-            // ?????????/????
-            rb.velocity = new Vector2(0f, rb.velocity.y);
-            SetRun(false);
+            // Inside engage band: keep spacing or attack when possible
             if (!combatStarted)
             {
                 var timer = FindObjectOfType<Timer>();
@@ -111,7 +109,44 @@ public class EnemyAI : MonoBehaviour
                     timer.Restart(3f, 120f);
                 combatStarted = true;
             }
-            TryAttack();
+
+            // Distance to actual attack point for accuracy
+            float dToAtk = Vector2.Distance(attackPos, player.position);
+
+            if (attackTimer > 0f)
+            {
+                // On cooldown: keep moving to reach attack radius or step back if too close
+                if (dToAtk > attackRadius)
+                {
+                    rb.velocity = new Vector2(dir * moveSpeed, rb.velocity.y);
+                    SetRun(true);
+                }
+                else if (dToAtk < stopDistance)
+                {
+                    rb.velocity = new Vector2(-dir * moveSpeed, rb.velocity.y);
+                    SetRun(true);
+                }
+                else
+                {
+                    rb.velocity = new Vector2(0f, rb.velocity.y);
+                    SetRun(false);
+                }
+            }
+            else
+            {
+                // Ready to attack: if in attack radius, stop and attack; otherwise move closer
+                if (dToAtk <= attackRadius)
+                {
+                    rb.velocity = new Vector2(0f, rb.velocity.y);
+                    SetRun(false);
+                    TryAttack();
+                }
+                else
+                {
+                    rb.velocity = new Vector2(dir * moveSpeed, rb.velocity.y);
+                    SetRun(true);
+                }
+            }
         }
     }
 
@@ -165,6 +200,29 @@ public class EnemyAI : MonoBehaviour
         {
             anim.SetBool("atk", false);
             anim.SetBool("crouch", false);
+        }
+        // Resume movement immediately based on spacing
+        if (player != null)
+        {
+            Vector3 attackPos = attackPoint != null ? attackPoint.position : transform.position;
+            float dist = Vector2.Distance(attackPos, player.position);
+            float dir = Mathf.Sign(player.position.x - transform.position.x);
+            if (dist > attackRange)
+            {
+                rb.velocity = new Vector2(dir * moveSpeed, rb.velocity.y);
+                SetRun(true);
+            }
+            else if (dist < stopDistance)
+            {
+                rb.velocity = new Vector2(-dir * moveSpeed, rb.velocity.y);
+                SetRun(true);
+            }
+            else
+            {
+                // small nudge to avoid idle lock
+                rb.velocity = new Vector2(dir * 0.2f * moveSpeed, rb.velocity.y);
+                SetRun(true);
+            }
         }
     }
 

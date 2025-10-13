@@ -514,7 +514,7 @@ public class Player : MonoBehaviour
         Collider2D[] enemy = Physics2D.OverlapCircleAll(AttackPoint.transform.position, radius, Enemy);
         foreach (Collider2D enemyGameobject in enemy)
         {
-            var hp = enemyGameobject.GetComponent<HealthEnemy>();
+            var hp = enemyGameobject.GetComponent<HealthEnemy>() ?? enemyGameobject.GetComponentInParent<HealthEnemy>();
             if (hp != null) hp.TakeDamage(usedDamage);
         }
     }
@@ -525,7 +525,7 @@ public class Player : MonoBehaviour
         Collider2D[] enemy = Physics2D.OverlapCircleAll(CrouchAttackPoint.transform.position, crouchRadius, Enemy);
         foreach (Collider2D enemyGameobject in enemy)
         {
-            var hp = enemyGameobject.GetComponent<HealthEnemy>();
+            var hp = enemyGameobject.GetComponent<HealthEnemy>() ?? enemyGameobject.GetComponentInParent<HealthEnemy>();
             if (hp != null) hp.TakeDamage(crouchAttackDamage);
         }
     }

@@ -9,6 +9,15 @@ public class Timer : MonoBehaviour
     public static bool GateBlocked { get; private set; }
     public bool IsCountingDown => countdownTime > 0f;
     public bool IsRunning => countdownTime <= 0f && remainingTime > 0f;
+    // Public read-only accessors for other systems
+    public float RemainingTime => remainingTime;
+    public float DefaultRemainingSeconds => defaultRemainingSeconds;
+    public float ElapsedMainTime => Mathf.Max(0f, defaultRemainingSeconds - remainingTime);
+    // Unscaled elapsed since main timer started (excludes countdown, ignores timeScale)
+    public float UnscaledElapsedMainTime => _mainStarted ? Mathf.Max(0f, Time.unscaledTime - _mainStartUnscaled) : 0f;
+
+    private bool _mainStarted = false;
+    private float _mainStartUnscaled = 0f;
     [SerializeField] TextMeshProUGUI timerText;
     [SerializeField] float remainingTime;
     [SerializeField] TextMeshProUGUI countdownText;
@@ -37,6 +46,10 @@ public class Timer : MonoBehaviour
             }
             if (countdownText) countdownText.enabled = false; // hide when finished
             GateBlocked = false; // release gate when countdown done
+            // Mark main timer start (unscaled reference)
+            _mainStarted = true;
+            _mainStartUnscaled = Time.unscaledTime;
+            // proceed into main timer logic this frame
         }
 
         if (remainingTime > 0)
@@ -60,6 +73,8 @@ public class Timer : MonoBehaviour
     {
         countdownTime = Mathf.Max(0f, countdownSeconds);
         remainingTime = Mathf.Max(0f, remainingSeconds);
+        _mainStarted = false;
+        _mainStartUnscaled = 0f;
         GateBlocked = countdownTime > 0f;
         if (countdownText)
         {

@@ -7,6 +7,15 @@ public class RoundManager : MonoBehaviour
     public int enemyWinCount = 0;
     public int roundsToWin = 2; // ต้องชนะ 2 รอบถึงจะชนะเกม
 
+    [Header("Match Result Actions")]
+    [Tooltip("วัตถุที่จะทำงานเมื่อผู้เล่นชนะครบตามรอบ")] public GameObject onPlayerWinObject;
+    [Tooltip("วัตถุที่จะทำงานเมื่อผู้เล่นแพ้")] public GameObject onPlayerLoseObject;
+    [Tooltip("ชื่อเมธอดบนวัตถุผู้ชนะที่จะรับค่าเวลา (float seconds)")] public string winTimeMethodName = "OnMatchWinTime";
+    [Tooltip("ปิดการทำงานของ Player/Enemy หลังจบแมตช์")] public bool disableFightersOnEnd = true;
+    [Header("End Match Freeze")]
+    [Tooltip("หยุดเวลาเกมทั้งหมดเมื่อจบแมตช์ (Time.timeScale = 0)")] public bool pauseTimeOnEnd = true;
+    [Tooltip("ให้ Animator บน Victory/Defeat ใช้ UnscaledTime เพื่อให้ UI ยังเล่นอนิเมชันได้ตอน pause")] public bool setUIAnimatorsUnscaled = true;
+
     [Header("Refs")]
     public Transform playerSpawn;
     public Transform enemySpawn;
@@ -16,6 +25,10 @@ public class RoundManager : MonoBehaviour
     private HealthCh playerHealth;
     private HealthEnemy enemyHealth;
     private bool roundTransitioning;
+    private float matchStartTime;
+    private float accumulatedMainTime = 0f; // sum of main-time over finished rounds
+
+    public static float LastPlayerWinTime { get; private set; }
 
     private void Update()
     {
@@ -42,6 +55,13 @@ public class RoundManager : MonoBehaviour
         }
     }
 
+    private void OnEnable()
+    {
+        // เริ่มจับเวลาแมตช์ตั้งแต่เปิดใช้งาน (fallback)
+        matchStartTime = Time.time;
+        accumulatedMainTime = 0f; // reset total for a fresh match
+    }
+
     public void PlayerWinsRound()
     {
         playerWinCount++;
@@ -54,6 +74,8 @@ public class RoundManager : MonoBehaviour
         }
         else
         {
+            // รวมเวลาของรอบที่เพิ่งจบเข้ากับผลรวมทั้งหมด
+            AccumulateCurrentRoundElapsed();
             StartNextRound();
         }
     }
@@ -70,6 +92,8 @@ public class RoundManager : MonoBehaviour
         }
         else
         {
+            // รวมเวลาของรอบที่เพิ่งจบเข้ากับผลรวมทั้งหมด
+            AccumulateCurrentRoundElapsed();
             StartNextRound();
         }
     }
@@ -121,15 +145,79 @@ public class RoundManager : MonoBehaviour
 
     void EndMatch(bool playerWin)
     {
+        roundTransitioning = true;
+        if (pauseTimeOnEnd)
+        {
+            Time.timeScale = 0f; // freeze gameplay time & animations
+        }
         if (playerWin)
         {
             // แสดง Victory UI หรือไปฉากต่อไป
             Debug.Log("Show Victory Screen");
+            // จับเวลาและส่งไปยังวัตถุที่กำหนด (อิงเวลาจาก Timer โดยไม่รวม countdown)
+            float elapsed = 0f;
+            var timer = FindObjectOfType<Timer>();
+            if (timer != null)
+                elapsed = accumulatedMainTime + timer.UnscaledElapsedMainTime + 2f; // รวมทุก round และบวก 2 วิ
+            else
+                elapsed = accumulatedMainTime + (Time.time - matchStartTime) + 2f; // fallback
+            LastPlayerWinTime = elapsed;
+            if (onPlayerWinObject != null)
+            {
+                onPlayerWinObject.SetActive(true);
+                if (setUIAnimatorsUnscaled) ForceUnscaledAnimators(onPlayerWinObject);
+                // ส่งเวลาไปยังสคริปต์ปลายทาง (รองรับถ้าไม่มีเมธอด)
+                onPlayerWinObject.SendMessage(winTimeMethodName, elapsed, SendMessageOptions.DontRequireReceiver);
+            }
         }
         else
         {
             // แสดง Game Over
             Debug.Log("Show Defeat Screen");
+            if (onPlayerLoseObject != null)
+            {
+                onPlayerLoseObject.SetActive(true);
+                if (setUIAnimatorsUnscaled) ForceUnscaledAnimators(onPlayerLoseObject);
+            }
+
+        }
+
+        if (disableFightersOnEnd)
+        {
+            if (player != null) player.SetActive(false);
+            if (enemy != null) enemy.SetActive(false);
+        }
+    }
+
+    // รวมเวลาเฉพาะส่วน main timer ของรอบปัจจุบันเข้า accumulatedMainTime (ไม่นับ countdown)
+    private void AccumulateCurrentRoundElapsed()
+    {
+        var timer = FindObjectOfType<Timer>();
+        if (timer != null)
+        {
+            accumulatedMainTime += Mathf.Max(0f, timer.UnscaledElapsedMainTime);
+        }
+        else
+        {
+            accumulatedMainTime += Mathf.Max(0f, Time.time - matchStartTime);
+        }
+    }
+
+    // เปลี่ยน Animator ใน UI ที่เลือกให้ใช้เวลาแบบ Unscaled เพื่อให้เล่นได้ตอนเกม pause
+    private void ForceUnscaledAnimators(GameObject root)
+    {
+        if (root == null) return;
+        var animators = root.GetComponentsInChildren<Animator>(true);
+        foreach (var a in animators)
+        {
+            a.updateMode = AnimatorUpdateMode.UnscaledTime;
+        }
+        // ปรับ ParticleSystem ให้ใช้ unscaled ถ้ามี
+        var particles = root.GetComponentsInChildren<ParticleSystem>(true);
+        foreach (var ps in particles)
+        {
+            var main = ps.main;
+            main.useUnscaledTime = true;
         }
     }
 }
