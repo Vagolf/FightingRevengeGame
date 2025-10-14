@@ -1718,13 +1718,25 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: 
-        m_MethodName: 
+      - m_Target: {fileID: 2013884668}
+        m_TargetAssemblyTypeName: VictoryReporter, Assembly-CSharp
+        m_MethodName: SaveVictory
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: 
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+      - m_Target: {fileID: 2013884669}
+        m_TargetAssemblyTypeName: VictoryNextStation, Assembly-CSharp
+        m_MethodName: BackToMainMenu
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
           m_IntArgument: 0
           m_FloatArgument: 0
           m_StringArgument: 
@@ -2980,6 +2992,7 @@ GameObject:
   m_Component:
   - component: {fileID: 847701010}
   - component: {fileID: 847701011}
+  - component: {fileID: 847701012}
   m_Layer: 5
   m_Name: Defeat
   m_TagString: Untagged
@@ -3019,6 +3032,22 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 847701009}
   m_CullTransparentMesh: 1
+--- !u!114 &847701012
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 847701009}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b6adb7484f244343b59e88014ef8ad8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  useAsyncLoad: 0
+  resetTimeScale: 1
+  timeScaleOnReload: 1
+  defeatPanel: {fileID: 1654891425}
 --- !u!1 &905834329
 GameObject:
   m_ObjectHideFlags: 0
@@ -5538,7 +5567,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1507174005}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 847701012}
+        m_TargetAssemblyTypeName: PlayAgainButton, Assembly-CSharp
+        m_MethodName: PlayAgain
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1507174005
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6143,6 +6184,7 @@ GameObject:
   - component: {fileID: 1654891426}
   - component: {fileID: 1654891428}
   - component: {fileID: 1654891427}
+  - component: {fileID: 1654891429}
   m_Layer: 5
   m_Name: Defeat
   m_TagString: Untagged
@@ -6267,6 +6309,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1654891425}
   m_CullTransparentMesh: 1
+--- !u!114 &1654891429
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1654891425}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 11e7a0cf046e8d1428ee0430c14cf75e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  pauseTimeOnShow: 1
+  resumeTimeOnHide: 0
 --- !u!1 &1670596702
 GameObject:
   m_ObjectHideFlags: 0
@@ -6350,7 +6406,31 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1670596706}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 2013884668}
+        m_TargetAssemblyTypeName: VictoryReporter, Assembly-CSharp
+        m_MethodName: SaveVictory
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+      - m_Target: {fileID: 2013884669}
+        m_TargetAssemblyTypeName: VictoryNextStation, Assembly-CSharp
+        m_MethodName: NextStation
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1670596706
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7040,7 +7120,7 @@ GameObject:
   - component: {fileID: 2013884665}
   - component: {fileID: 2013884666}
   - component: {fileID: 2013884668}
-  - component: {fileID: 2013884667}
+  - component: {fileID: 2013884669}
   m_Layer: 5
   m_Name: Victory
   m_TagString: Untagged
@@ -7099,18 +7179,6 @@ MonoBehaviour:
   tmpText: {fileID: 582899872}
   timeFormat: '{0:00}:{1:00}'
   prefix: 'Time '
---- !u!114 &2013884667
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2013884663}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0b042d1337bb47d499290dfd28d29db5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &2013884668
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7126,6 +7194,23 @@ MonoBehaviour:
   nameInput: {fileID: 768030238}
   difficultyOverride: Easy
   timeDisplay: {fileID: 2013884666}
+--- !u!114 &2013884669
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2013884663}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6efc5a14889815b4bb5f41dcab66d81d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mainMenuBuildIndex: 0
+  mainMenuSceneName: MainMenu
+  useAsyncLoad: 1
+  resetTimeScaleOnLoad: 1
+  timeScale: 1
 --- !u!1 &2021107435
 GameObject:
   m_ObjectHideFlags: 0

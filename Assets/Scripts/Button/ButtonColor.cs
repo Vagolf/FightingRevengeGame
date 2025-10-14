@@ -1,32 +1,32 @@
 using UnityEngine;
-using System.Collections.Generic;
+using UnityEngine.UI;
 using UnityEngine.EventSystems;
-using TMPro;
 
-public class ButtonTextColor : MonoBehaviour, ISelectableButton, IPointerEnterHandler, IPointerExitHandler, ISelectHandler, IDeselectHandler, IPointerClickHandler
+public class ButtonColor : MonoBehaviour, ISelectableButton, IPointerEnterHandler, IPointerExitHandler, ISelectHandler, IDeselectHandler, IPointerClickHandler
 {
     public Color normalColor = Color.white;
     public Color highlightColor = Color.yellow;
-    public Color selectedColor = Color.cyan; // Added selected color
-    public TextMeshProUGUI buttonText;
+    public Color selectedColor = Color.cyan;
+    public Image buttonImage;
 
-    public ButtonGroupColorManager groupManager;
+    public ButtonGroupManager groupManager;
     [Tooltip("Buttons with the same groupKey belong to the same selection set. Leave empty to auto-group by parent container.")]
     public string groupKey { get; set; } = string.Empty;
     [Tooltip("Optional explicit grouping root. Buttons referencing the same container are in one set.")]
     public Transform groupContainer { get; set; }
     private bool isSelected = false;
 
-    private void Awake()
+    private void Start()
     {
-        // Auto-wire text component if not assigned
-        if (buttonText == null)
-            buttonText = GetComponentInChildren<TextMeshProUGUI>(true);
-
-        // Auto-find group manager if not assigned
+        if (buttonImage == null)
+            buttonImage = GetComponent<Image>();
+            
+        if (buttonImage != null)
+            buttonImage.color = normalColor;
+            
         if (groupManager == null)
         {
-            groupManager = GetComponentInParent<ButtonGroupColorManager>();
+            groupManager = GetComponentInParent<ButtonGroupManager>();
             if (groupManager != null)
             {
                 groupManager.AddButton(this);
@@ -34,28 +34,24 @@ public class ButtonTextColor : MonoBehaviour, ISelectableButton, IPointerEnterHa
         }
     }
 
-    private void Start()
-    {
-        ApplyColor(normalColor);
-    }
-
     public void OnSelect(BaseEventData eventData)
     {
         isSelected = true;
-        ApplyColor(selectedColor); // Use selected color
+        if (buttonImage != null)
+            buttonImage.color = selectedColor;
         groupManager?.OnButtonChosen(this);
     }
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        if (!isSelected)
-            ApplyColor(highlightColor);
+        if (!isSelected && buttonImage != null)
+            buttonImage.color = highlightColor;
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        if (!isSelected)
-            ApplyColor(normalColor);
+        if (!isSelected && buttonImage != null)
+            buttonImage.color = normalColor;
     }
 
     public void OnDeselect(BaseEventData eventData)
@@ -65,31 +61,29 @@ public class ButtonTextColor : MonoBehaviour, ISelectableButton, IPointerEnterHa
         if (groupManager != null && groupManager.IsCurrentSelected(this))
         {
             isSelected = true;
-            ApplyColor(selectedColor);
+            if (buttonImage != null)
+                buttonImage.color = selectedColor;
             return;
         }
         // If we reach here, this button is not the selected one in its group
         // Reset to normal state
         isSelected = false;
-        ApplyColor(normalColor);
+        if (buttonImage != null)
+            buttonImage.color = normalColor;
     }
 
     public void SetToNormal()
     {
         isSelected = false;
-        ApplyColor(normalColor);
+        if (buttonImage != null)
+            buttonImage.color = normalColor;
     }
 
     public void OnPointerClick(PointerEventData eventData)
     {
         isSelected = true;
-        ApplyColor(selectedColor);
+        if (buttonImage != null)
+            buttonImage.color = selectedColor;
         groupManager?.OnButtonChosen(this);
-    }
-
-    private void ApplyColor(Color c)
-    {
-        if (buttonText != null)
-            buttonText.color = c;
     }
 }

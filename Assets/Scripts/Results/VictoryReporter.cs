@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using Story;
 
 // Attach this to your Victory object. It reads name from an InputField or TMP_InputField
 // and reads time from VictoryTimeDisplay (or set manually) then stores to JSON via RunResultsStore.
@@ -54,14 +55,44 @@ public class VictoryReporter : MonoBehaviour
 
     private string GetDifficulty()
     {
-        if (!string.IsNullOrWhiteSpace(difficultyOverride)) return difficultyOverride;
-        // Try GameManagerScript if it exposes difficulty
+        // 1) Explicit override (normalize to Easy/Normal/Hard)
+        if (!string.IsNullOrWhiteSpace(difficultyOverride))
+        {
+            return NormalizeDifficulty(difficultyOverride);
+        }
+
+        // 2) Use Story save difficulty if available
+        var currentSave = SaveManager.GetCurrent();
+        if (currentSave != null)
+        {
+            return currentSave.difficulty.ToString(); // Easy / Normal / Hard
+        }
+
+        // 3) Fallback: infer from a tag on a manager or scene object
         var gm = FindObjectOfType<GameManagerScript>();
         if (gm != null)
         {
-            // If you have a property, adapt here; fallback
-            return gm.gameObject.tag == "Hard" ? "Hard" : "Normal";
+            var tag = gm.gameObject.tag;
+            if (string.Equals(tag, "Easy", System.StringComparison.OrdinalIgnoreCase)) return "Easy";
+            if (string.Equals(tag, "Hard", System.StringComparison.OrdinalIgnoreCase)) return "Hard";
+            return "Normal";
         }
+
+        // Default
+        return "Normal";
+    }
+
+    private string NormalizeDifficulty(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "Normal";
+        var v = value.Trim();
+        if (string.Equals(v, "Easy", System.StringComparison.OrdinalIgnoreCase)) return "Easy";
+        if (string.Equals(v, "Normal", System.StringComparison.OrdinalIgnoreCase)) return "Normal";
+        if (string.Equals(v, "Hard", System.StringComparison.OrdinalIgnoreCase)) return "Hard";
+        // accept short forms
+        if (string.Equals(v, "E", System.StringComparison.OrdinalIgnoreCase)) return "Easy";
+        if (string.Equals(v, "N", System.StringComparison.OrdinalIgnoreCase)) return "Normal";
+        if (string.Equals(v, "H", System.StringComparison.OrdinalIgnoreCase)) return "Hard";
         return "Normal";
     }
 }

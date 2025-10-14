@@ -24,6 +24,9 @@ namespace Story
         [SerializeField] private Sprite stage1Sprite;
         [SerializeField] private Sprite stage2Sprite;
         [SerializeField] private Sprite stage3Sprite;
+        [Header("Optional: Multiple Previews (Roman/Eva/Dusan)")]
+        [Tooltip("Assign 3 Images to show per selection (1=Roman, 2=Eva, 3=Dusan). If set, these will be toggled active; otherwise fallback to single sprite swap above.")]
+        [SerializeField] private Image[] mapPreviews; // size 3
 
         [Header("Start")]
         [SerializeField] private Button startButton;
@@ -53,6 +56,10 @@ namespace Story
 
         private void OnEnable()
         {
+            // Ensure time is resumed when entering this panel (in case previous UI paused it)
+            Time.timeScale = 1f;
+            try { PauseGame.GameIsPause = false; } catch { }
+
             var save = SaveManager.GetCurrent();
             if (save == null) return;
             if (saveNameText) saveNameText.text = save.name;
@@ -72,8 +79,18 @@ namespace Story
         private void SelectStage(int index)
         {
             selectedStageIndex = index;
-            if (mapPreview)
+            // Prefer multi-image previews if assigned
+            if (mapPreviews != null && mapPreviews.Length >= 3)
             {
+                for (int i = 0; i < mapPreviews.Length; i++)
+                {
+                    if (mapPreviews[i] == null) continue;
+                    mapPreviews[i].gameObject.SetActive((i + 1) == index);
+                }
+            }
+            else if (mapPreview)
+            {
+                // Fallback to single sprite switch
                 mapPreview.sprite = index == 1 ? stage1Sprite : index == 2 ? stage2Sprite : stage3Sprite;
             }
         }
@@ -83,7 +100,13 @@ namespace Story
             var save = SaveManager.GetCurrent();
             if (save == null) return;
             string scene = ResolveScene(save.difficulty, selectedStageIndex);
-            if (!string.IsNullOrEmpty(scene)) SceneManager.LoadScene(scene);
+            if (!string.IsNullOrEmpty(scene))
+            {
+                // Ensure game is not paused when entering gameplay
+                Time.timeScale = 1f;
+                try { PauseGame.GameIsPause = false; } catch { }
+                SceneManager.LoadScene(scene);
+            }
         }
 
         private string ResolveScene(Difficulty diff, int stage)

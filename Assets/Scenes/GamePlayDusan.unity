@@ -561,8 +561,6 @@ MonoBehaviour:
   selectedColor: {r: 0, g: 0, b: 0, a: 1}
   buttonText: {fileID: 1358186479}
   groupManager: {fileID: 0}
-  groupKey: 
-  groupContainer: {fileID: 0}
 --- !u!1 &119572006
 GameObject:
   m_ObjectHideFlags: 0
@@ -1614,8 +1612,6 @@ MonoBehaviour:
   selectedColor: {r: 0, g: 0, b: 0, a: 1}
   buttonText: {fileID: 1400514606}
   groupManager: {fileID: 0}
-  groupKey: 
-  groupContainer: {fileID: 0}
 --- !u!114 &505108231
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1659,7 +1655,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 505108232}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 2013884668}
+        m_TargetAssemblyTypeName: VictoryNextStation, Assembly-CSharp
+        m_MethodName: BackToMainMenu
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &505108232
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2910,6 +2918,7 @@ GameObject:
   m_Component:
   - component: {fileID: 847701010}
   - component: {fileID: 847701011}
+  - component: {fileID: 847701012}
   m_Layer: 5
   m_Name: Defeat
   m_TagString: Untagged
@@ -2949,6 +2958,22 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 847701009}
   m_CullTransparentMesh: 1
+--- !u!114 &847701012
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 847701009}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b6adb7484f244343b59e88014ef8ad8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  useAsyncLoad: 0
+  resetTimeScale: 1
+  timeScaleOnReload: 1
+  defeatPanel: {fileID: 1654891425}
 --- !u!1 &905834329
 GameObject:
   m_ObjectHideFlags: 0
@@ -3609,8 +3634,6 @@ MonoBehaviour:
   selectedColor: {r: 0, g: 0, b: 0, a: 1}
   buttonText: {fileID: 529828651}
   groupManager: {fileID: 0}
-  groupKey: 
-  groupContainer: {fileID: 0}
 --- !u!114 &1014485228
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4770,7 +4793,7 @@ Rigidbody2D:
   m_LinearDrag: 0
   m_AngularDrag: 0.05
   m_GravityScale: 3.3
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 6200000, guid: 6dd088f31322e184aacad059764cee90, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -4790,7 +4813,7 @@ BoxCollider2D:
   m_GameObject: {fileID: 1421889896}
   m_Enabled: 1
   m_Density: 1
-  m_Material: {fileID: 6200000, guid: 6dd088f31322e184aacad059764cee90, type: 2}
+  m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -5297,7 +5320,7 @@ MonoBehaviour:
   playerSpawn: {fileID: 1982720868}
   enemySpawn: {fileID: 372349620}
   player: {fileID: 7890485055779065181}
-  enemy: {fileID: 5769469437657478017}
+  enemy: {fileID: 1421889896}
 --- !u!1 &1507174001
 GameObject:
   m_ObjectHideFlags: 0
@@ -5355,8 +5378,6 @@ MonoBehaviour:
   selectedColor: {r: 0, g: 0, b: 0, a: 1}
   buttonText: {fileID: 495418528}
   groupManager: {fileID: 0}
-  groupKey: 
-  groupContainer: {fileID: 0}
 --- !u!114 &1507174004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5400,7 +5421,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1507174005}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 847701012}
+        m_TargetAssemblyTypeName: PlayAgainButton, Assembly-CSharp
+        m_MethodName: PlayAgain
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1507174005
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5757,7 +5790,7 @@ MonoBehaviour:
   playerObjects:
   - {fileID: 7890485055779065181}
   enemyObjects:
-  - {fileID: 0}
+  - {fileID: 1421889896}
   playerSpawnPoint: {fileID: 1982720868}
   enemySpawnPoint: {fileID: 372349620}
   setTagsOnSpawn: 1
@@ -6005,6 +6038,7 @@ GameObject:
   - component: {fileID: 1654891426}
   - component: {fileID: 1654891428}
   - component: {fileID: 1654891427}
+  - component: {fileID: 1654891429}
   m_Layer: 5
   m_Name: Defeat
   m_TagString: Untagged
@@ -6129,6 +6163,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1654891425}
   m_CullTransparentMesh: 1
+--- !u!114 &1654891429
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1654891425}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 11e7a0cf046e8d1428ee0430c14cf75e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  pauseTimeOnShow: 1
+  resumeTimeOnHide: 0
 --- !u!1 &1670596702
 GameObject:
   m_ObjectHideFlags: 0
@@ -6212,7 +6260,31 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1670596706}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 2013884667}
+        m_TargetAssemblyTypeName: VictoryReporter, Assembly-CSharp
+        m_MethodName: SaveVictory
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+      - m_Target: {fileID: 2013884668}
+        m_TargetAssemblyTypeName: VictoryNextStation, Assembly-CSharp
+        m_MethodName: NextStation
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1670596706
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6268,8 +6340,6 @@ MonoBehaviour:
   selectedColor: {r: 0, g: 0, b: 0, a: 1}
   buttonText: {fileID: 847397325}
   groupManager: {fileID: 0}
-  groupKey: 
-  groupContainer: {fileID: 0}
 --- !u!1 &1673955769
 GameObject:
   m_ObjectHideFlags: 0
@@ -6903,6 +6973,8 @@ GameObject:
   - component: {fileID: 2013884664}
   - component: {fileID: 2013884665}
   - component: {fileID: 2013884666}
+  - component: {fileID: 2013884667}
+  - component: {fileID: 2013884668}
   m_Layer: 5
   m_Name: Victory
   m_TagString: Untagged
@@ -6961,6 +7033,38 @@ MonoBehaviour:
   tmpText: {fileID: 582899872}
   timeFormat: '{0:00}:{1:00}'
   prefix: 'Time '
+--- !u!114 &2013884667
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2013884663}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa40ef7202ae458419fc2dc6bc4042e1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  nameInput: {fileID: 768030238}
+  difficultyOverride: Easy
+  timeDisplay: {fileID: 2013884666}
+--- !u!114 &2013884668
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2013884663}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6efc5a14889815b4bb5f41dcab66d81d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mainMenuBuildIndex: 0
+  mainMenuSceneName: MainMenu
+  useAsyncLoad: 1
+  resetTimeScaleOnLoad: 1
+  timeScale: 1
 --- !u!1 &2021107435
 GameObject:
   m_ObjectHideFlags: 0
